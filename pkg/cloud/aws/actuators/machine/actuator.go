@@ -302,7 +302,7 @@ func (a *Actuator) isMachineOutdated(machineSpec *v1alpha1.AWSMachineProviderSpe
 
 	// Root Device Size
 	if machineSpec.RootDeviceSize != instance.RootDeviceSize {
-		errs = append(errs, errors.Errorf("Root volume size cannot be mutated from %v to %v", aws.Int64(instance.RootDeviceSize), machineSpec.RootDeviceSize))
+		errs = append(errs, errors.Errorf("Root volume size cannot be mutated from %v to %v", instance.RootDeviceSize, machineSpec.RootDeviceSize))
 	}
 
 	// Subnet ID

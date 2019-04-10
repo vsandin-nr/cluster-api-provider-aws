@@ -63,7 +63,15 @@ func (s *Service) InstanceByTags(machine *actuators.MachineScope) (*v1alpha1.Ins
 	// match
 	for _, res := range out.Reservations {
 		for _, inst := range res.Instances {
-			return converters.SDKToInstance(inst), nil
+			instance := converters.SDKToInstance(inst)
+
+			rootSize, err := s.getInstanceRootVolumeSize(inst)
+			if err != nil {
+				return nil, errors.Wrapf(err, "unable to get root volume size for instance: %q", aws.StringValue(inst.InstanceId))
+			}
+
+			instance.RootDeviceSize = aws.Int64Value(rootSize)
+			return instance, nil
 		}
 	}
 
@@ -96,7 +104,15 @@ func (s *Service) InstanceIfExists(id *string) (*v1alpha1.Instance, error) {
 	}
 
 	if len(out.Reservations) > 0 && len(out.Reservations[0].Instances) > 0 {
-		return converters.SDKToInstance(out.Reservations[0].Instances[0]), nil
+		instance := converters.SDKToInstance(out.Reservations[0].Instances[0])
+
+		rootSize, err := s.getInstanceRootVolumeSize(out.Reservations[0].Instances[0])
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to get root volume size for instance: %q", aws.StringValue(out.Reservations[0].Instances[0].InstanceId))
+		}
+
+		instance.RootDeviceSize = aws.Int64Value(rootSize)
+		return instance, nil
 	}
 
 	return nil, nil
@@ -433,7 +449,16 @@ func (s *Service) runInstance(role string, i *v1alpha1.Instance) (*v1alpha1.Inst
 	}
 
 	s.scope.EC2.WaitUntilInstanceRunning(&ec2.DescribeInstancesInput{InstanceIds: []*string{out.Instances[0].InstanceId}})
-	return converters.SDKToInstance(out.Instances[0]), nil
+
+	instance := converters.SDKToInstance(out.Instances[0])
+
+	rootSize, err := s.getInstanceRootVolumeSize(out.Instances[0])
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to get root volume size for instance: %q", aws.StringValue(out.Instances[0].InstanceId))
+	}
+
+	instance.RootDeviceSize = aws.Int64Value(rootSize)
+	return instance, nil
 }
 
 // UpdateInstanceSecurityGroups modifies the security groups of the given
@@ -543,4 +568,27 @@ func (s *Service) getImageRootVolume(imageID string) (*string, error) {
 	}
 
 	return output.Images[0].RootDeviceName, nil
+}
+
+func (s *Service) getInstanceRootVolumeSize(instance *ec2.Instance) (*int64, error) {
+
+	for _, bdm := range instance.BlockDeviceMappings {
+		if aws.StringValue(bdm.DeviceName) == aws.StringValue(instance.RootDeviceName) {
+			input := &ec2.DescribeVolumesInput{
+				VolumeIds: []*string{bdm.Ebs.VolumeId},
+			}
+
+			out, err := s.scope.EC2.DescribeVolumes(input)
+			if err != nil {
+				return nil, err
+			}
+
+			if len(out.Volumes) == 0 {
+				return nil, errors.Errorf("no volumes found for id %q", aws.StringValue(bdm.Ebs.VolumeId))
+			}
+
+			return out.Volumes[0].Size, nil
+		}
+	}
+	return nil, nil
 }
