@@ -423,6 +423,8 @@ type Instance struct {
 	// Indicates whether the instance is optimized for Amazon EBS I/O.
 	EBSOptimized *bool `json:"ebsOptimized,omitempty"`
 
+	RootDeviceSize int64 `json:"rootDeviceSize,omitempty"`
+
 	// The tags associated with the instance.
 	Tags map[string]string `json:"tags,omitempty"`
 }

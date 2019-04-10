@@ -107,8 +107,9 @@ func (s *Service) createInstance(machine *actuators.MachineScope, bootstrapToken
 	klog.V(2).Infof("Creating a new instance for machine %q", machine.Name())
 
 	input := &v1alpha1.Instance{
-		Type:       machine.MachineConfig.InstanceType,
-		IAMProfile: machine.MachineConfig.IAMInstanceProfile,
+		Type:           machine.MachineConfig.InstanceType,
+		IAMProfile:     machine.MachineConfig.IAMInstanceProfile,
+		RootDeviceSize: machine.MachineConfig.RootDeviceSize,
 	}
 
 	input.Tags = tags.Build(tags.BuildParams{
@@ -393,6 +394,23 @@ func (s *Service) runInstance(role string, i *v1alpha1.Instance) (*v1alpha1.Inst
 		}
 	}
 
+	if i.RootDeviceSize != 0 {
+		rootVolumeName, err := s.getImageRootVolume(i.ImageID)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get root volume from image %q", i.ImageID)
+		}
+
+		input.BlockDeviceMappings = []*ec2.BlockDeviceMapping{
+			&ec2.BlockDeviceMapping{
+				DeviceName: rootVolumeName,
+				Ebs: &ec2.EbsBlockDevice{
+					DeleteOnTermination: aws.Bool(true),
+					VolumeSize:          aws.Int64(i.RootDeviceSize),
+				},
+			},
+		}
+	}
+
 	if len(i.Tags) > 0 {
 		spec := &ec2.TagSpecification{ResourceType: aws.String(ec2.ResourceTypeInstance)}
 		for key, value := range i.Tags {
@@ -508,4 +526,21 @@ func (s *Service) getInstanceENIs(instanceID string) ([]*ec2.NetworkInterface, e
 	}
 
 	return output.NetworkInterfaces, nil
+}
+
+func (s *Service) getImageRootVolume(imageID string) (*string, error) {
+	input := &ec2.DescribeImagesInput{
+		ImageIds: []*string{aws.String(imageID)},
+	}
+
+	output, err := s.scope.EC2.DescribeImages(input)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(output.Images) == 0 {
+		return nil, errors.Errorf("no images returned when looking up ID %q", imageID)
+	}
+
+	return output.Images[0].RootDeviceName, nil
 }
