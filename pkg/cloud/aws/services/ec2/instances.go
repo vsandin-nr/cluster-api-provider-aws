@@ -63,15 +63,7 @@ func (s *Service) InstanceByTags(machine *actuators.MachineScope) (*v1alpha1.Ins
 	// match
 	for _, res := range out.Reservations {
 		for _, inst := range res.Instances {
-			instance := converters.SDKToInstance(inst)
-
-			rootSize, err := s.getInstanceRootVolumeSize(inst)
-			if err != nil {
-				return nil, errors.Wrapf(err, "unable to get root volume size for instance: %q", aws.StringValue(inst.InstanceId))
-			}
-
-			instance.RootDeviceSize = aws.Int64Value(rootSize)
-			return instance, nil
+			return s.sdkToInstance(inst)
 		}
 	}
 
@@ -104,15 +96,7 @@ func (s *Service) InstanceIfExists(id *string) (*v1alpha1.Instance, error) {
 	}
 
 	if len(out.Reservations) > 0 && len(out.Reservations[0].Instances) > 0 {
-		instance := converters.SDKToInstance(out.Reservations[0].Instances[0])
-
-		rootSize, err := s.getInstanceRootVolumeSize(out.Reservations[0].Instances[0])
-		if err != nil {
-			return nil, errors.Wrapf(err, "unable to get root volume size for instance: %q", aws.StringValue(out.Reservations[0].Instances[0].InstanceId))
-		}
-
-		instance.RootDeviceSize = aws.Int64Value(rootSize)
-		return instance, nil
+		return s.sdkToInstance(out.Reservations[0].Instances[0])
 	}
 
 	return nil, nil
@@ -450,15 +434,7 @@ func (s *Service) runInstance(role string, i *v1alpha1.Instance) (*v1alpha1.Inst
 
 	s.scope.EC2.WaitUntilInstanceRunning(&ec2.DescribeInstancesInput{InstanceIds: []*string{out.Instances[0].InstanceId}})
 
-	instance := converters.SDKToInstance(out.Instances[0])
-
-	rootSize, err := s.getInstanceRootVolumeSize(out.Instances[0])
-	if err != nil {
-		return nil, errors.Wrapf(err, "unable to get root volume size for instance: %q", aws.StringValue(out.Instances[0].InstanceId))
-	}
-
-	instance.RootDeviceSize = aws.Int64Value(rootSize)
-	return instance, nil
+	return s.sdkToInstance(out.Instances[0])
 }
 
 // UpdateInstanceSecurityGroups modifies the security groups of the given
@@ -591,4 +567,16 @@ func (s *Service) getInstanceRootVolumeSize(instance *ec2.Instance) (*int64, err
 		}
 	}
 	return nil, nil
+}
+
+func (s *Service) sdkToInstance(v *ec2.Instance) (*v1alpha1.Instance, error) {
+	instance := converters.SDKToInstance(v)
+
+	rootSize, err := s.getInstanceRootVolumeSize(v)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to get root volume size for instance: %q", aws.StringValue(v.InstanceId))
+	}
+
+	instance.RootDeviceSize = aws.Int64Value(rootSize)
+	return instance, nil
 }
