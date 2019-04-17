@@ -17,12 +17,13 @@ limitations under the License.
 package ec2
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/base64"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/pkg/errors"
-	"k8s.io/klog"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/apis/awsprovider/v1alpha1"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/aws/actuators"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/aws/converters"
@@ -37,7 +38,7 @@ import (
 
 // InstanceByTags returns the existing instance or nothing if it doesn't exist.
 func (s *Service) InstanceByTags(machine *actuators.MachineScope) (*v1alpha1.Instance, error) {
-	klog.V(2).Infof("Looking for existing instance for machine %q in cluster %q", machine.Name(), s.scope.Name())
+	s.scope.V(2).Info("Looking for existing machine instance")
 
 	input := &ec2.DescribeInstancesInput{
 		Filters: []*ec2.Filter{
@@ -71,11 +72,11 @@ func (s *Service) InstanceByTags(machine *actuators.MachineScope) (*v1alpha1.Ins
 // InstanceIfExists returns the existing instance or nothing if it doesn't exist.
 func (s *Service) InstanceIfExists(id *string) (*v1alpha1.Instance, error) {
 	if id == nil {
-		klog.Error("Instance does not have an instance id")
+		s.scope.Info("Instance does not have an instance id")
 		return nil, nil
 	}
 
-	klog.V(2).Infof("Looking for instance %q", *id)
+	s.scope.V(2).Info("Looking for instance", "instance-id", *id)
 
 	input := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{id},
@@ -102,7 +103,7 @@ func (s *Service) InstanceIfExists(id *string) (*v1alpha1.Instance, error) {
 
 // createInstance runs an ec2 instance.
 func (s *Service) createInstance(machine *actuators.MachineScope, bootstrapToken, kubeConfig string) (*v1alpha1.Instance, error) {
-	klog.V(2).Infof("Creating a new instance for machine %q", machine.Name())
+	s.scope.V(2).Info("Creating an instance for a machine")
 
 	input := &v1alpha1.Instance{
 		Type:       machine.MachineConfig.InstanceType,
@@ -155,6 +156,7 @@ func (s *Service) createInstance(machine *actuators.MachineScope, bootstrapToken
 		)
 	}
 
+	s.scope.V(3).Info("Generating CA key pair")
 	caCertHash, err := certificates.GenerateCertificateHash(s.scope.ClusterConfig.CAKeyPair.Cert)
 	if err != nil {
 		return input, err
@@ -172,11 +174,11 @@ func (s *Service) createInstance(machine *actuators.MachineScope, bootstrapToken
 		var userData string
 
 		if bootstrapToken != "" {
-			klog.V(2).Infof("Allowing machine %q to join control plane for cluster %q", machine.Name(), s.scope.Name())
+			s.scope.V(2).Info("Allowing a machine to join the control plane")
 
-			kubeadm.SetJoinNodeConfigurationOverrides(caCertHash, bootstrapToken, machine, &machine.MachineConfig.KubeadmConfiguration.Join)
-			kubeadm.SetControlPlaneJoinConfigurationOverrides(&machine.MachineConfig.KubeadmConfiguration.Join)
-			joinConfigurationYAML, err := kubeadm.ConfigurationToYAML(&machine.MachineConfig.KubeadmConfiguration.Join)
+			updatedJoinConfiguration := kubeadm.SetJoinNodeConfigurationOverrides(caCertHash, bootstrapToken, machine, &machine.MachineConfig.KubeadmConfiguration.Join)
+			updatedJoinConfiguration = kubeadm.SetControlPlaneJoinConfigurationOverrides(updatedJoinConfiguration)
+			joinConfigurationYAML, err := kubeadm.ConfigurationToYAML(updatedJoinConfiguration)
 			if err != nil {
 				return nil, err
 			}
@@ -196,21 +198,21 @@ func (s *Service) createInstance(machine *actuators.MachineScope, bootstrapToken
 				return input, err
 			}
 		} else {
-			klog.V(2).Infof("Machine %q is the first controlplane machine for cluster %q", machine.Name(), s.scope.Name())
+			s.scope.V(2).Info("Machine is the first control plane machine for the cluster")
 			if !s.scope.ClusterConfig.CAKeyPair.HasCertAndKey() {
 				return nil, awserrors.NewFailedDependency(
 					errors.New("failed to run controlplane, missing CAPrivateKey"),
 				)
 			}
 
-			kubeadm.SetClusterConfigurationOverrides(machine, &s.scope.ClusterConfig.ClusterConfiguration)
-			clusterConfigYAML, err := kubeadm.ConfigurationToYAML(&s.scope.ClusterConfig.ClusterConfiguration)
+			clusterConfiguration := kubeadm.SetClusterConfigurationOverrides(machine, &s.scope.ClusterConfig.ClusterConfiguration)
+			clusterConfigYAML, err := kubeadm.ConfigurationToYAML(clusterConfiguration)
 			if err != nil {
 				return nil, err
 			}
 
-			kubeadm.SetInitConfigurationOverrides(&machine.MachineConfig.KubeadmConfiguration.Init)
-			initConfigYAML, err := kubeadm.ConfigurationToYAML(&machine.MachineConfig.KubeadmConfiguration.Init)
+			initConfiguration := kubeadm.SetInitConfigurationOverrides(machine, &machine.MachineConfig.KubeadmConfiguration.Init)
+			initConfigYAML, err := kubeadm.ConfigurationToYAML(initConfiguration)
 			if err != nil {
 				return nil, err
 			}
@@ -240,13 +242,14 @@ func (s *Service) createInstance(machine *actuators.MachineScope, bootstrapToken
 			s.scope.SecurityGroups()[v1alpha1.SecurityGroupLB].ID,
 		)
 	case "node":
+		s.scope.V(2).Info("Joining a worker node to the cluster")
 		input.SecurityGroupIDs = append(input.SecurityGroupIDs,
 			s.scope.SecurityGroups()[v1alpha1.SecurityGroupNode].ID,
 			s.scope.SecurityGroups()[v1alpha1.SecurityGroupLB].ID,
 		)
 
-		kubeadm.SetJoinNodeConfigurationOverrides(caCertHash, bootstrapToken, machine, &machine.MachineConfig.KubeadmConfiguration.Join)
-		joinConfigurationYAML, err := kubeadm.ConfigurationToYAML(&machine.MachineConfig.KubeadmConfiguration.Join)
+		joinConfiguration := kubeadm.SetJoinNodeConfigurationOverrides(caCertHash, bootstrapToken, machine, &machine.MachineConfig.KubeadmConfiguration.Join)
+		joinConfigurationYAML, err := kubeadm.ConfigurationToYAML(joinConfiguration)
 		if err != nil {
 			return nil, err
 		}
@@ -272,6 +275,7 @@ func (s *Service) createInstance(machine *actuators.MachineScope, bootstrapToken
 		input.KeyName = aws.String(defaultSSHKeyName)
 	}
 
+	s.scope.V(2).Info("Running instance", "machine-role", machine.Role())
 	out, err := s.runInstance(machine.Role(), input)
 	if err != nil {
 		return nil, err
@@ -284,7 +288,7 @@ func (s *Service) createInstance(machine *actuators.MachineScope, bootstrapToken
 // TerminateInstance terminates an EC2 instance.
 // Returns nil on success, error in all other cases.
 func (s *Service) TerminateInstance(instanceID string) error {
-	klog.V(2).Infof("Attempting to terminate instance with id %q", instanceID)
+	s.scope.V(2).Info("Attempting to terminate instance", "instance-id", instanceID)
 
 	input := &ec2.TerminateInstancesInput{
 		InstanceIds: aws.StringSlice([]string{instanceID}),
@@ -294,7 +298,7 @@ func (s *Service) TerminateInstance(instanceID string) error {
 		return errors.Wrapf(err, "failed to terminate instance with id %q", instanceID)
 	}
 
-	klog.V(2).Infof("Terminated instance with id %q", instanceID)
+	s.scope.V(2).Info("Terminated instance", "instance-id", instanceID)
 	record.Eventf(s.scope.Cluster, "DeletedInstance", "Terminated instance %q", instanceID)
 	return nil
 }
@@ -306,7 +310,7 @@ func (s *Service) TerminateInstanceAndWait(instanceID string) error {
 		return err
 	}
 
-	klog.V(2).Infof("Waiting for EC2 instance with id %q to terminate", instanceID)
+	s.scope.V(2).Info("Waiting for EC2 instance to terminate", "instance-id", instanceID)
 
 	input := &ec2.DescribeInstancesInput{
 		InstanceIds: aws.StringSlice([]string{instanceID}),
@@ -340,11 +344,11 @@ func (s *Service) MachineExists(machine *actuators.MachineScope) (bool, error) {
 
 // CreateOrGetMachine will either return an existing instance or create and return an instance.
 func (s *Service) CreateOrGetMachine(machine *actuators.MachineScope, bootstrapToken, kubeConfig string) (*v1alpha1.Instance, error) {
-	klog.V(2).Infof("Attempting to create or get machine %q", machine.Name())
+	s.scope.V(2).Info("Attempting to create or get machine")
 
 	// instance id exists, try to get it
 	if machine.MachineStatus.InstanceID != nil {
-		klog.V(2).Infof("Looking up machine %q by id %q", machine.Name(), *machine.MachineStatus.InstanceID)
+		s.scope.V(2).Info("Looking up machine by id", "instance-id", *machine.MachineStatus.InstanceID)
 
 		instance, err := s.InstanceIfExists(machine.MachineStatus.InstanceID)
 		if err != nil && !awserrors.IsNotFound(err) {
@@ -354,7 +358,7 @@ func (s *Service) CreateOrGetMachine(machine *actuators.MachineScope, bootstrapT
 		}
 	}
 
-	klog.V(2).Infof("Looking up machine %q by tags", machine.Name())
+	s.scope.V(2).Info("Looking up machine by tags")
 	instance, err := s.InstanceByTags(machine)
 	if err != nil && !awserrors.IsNotFound(err) {
 		return nil, errors.Wrapf(err, "failed to query machine %q instance by tags", machine.Name())
@@ -374,11 +378,21 @@ func (s *Service) runInstance(role string, i *v1alpha1.Instance) (*v1alpha1.Inst
 		EbsOptimized: i.EBSOptimized,
 		MaxCount:     aws.Int64(1),
 		MinCount:     aws.Int64(1),
-		UserData:     i.UserData,
 	}
 
 	if i.UserData != nil {
-		input.UserData = aws.String(base64.StdEncoding.EncodeToString([]byte(*i.UserData)))
+		var buf bytes.Buffer
+
+		gz := gzip.NewWriter(&buf)
+		if _, err := gz.Write([]byte(*i.UserData)); err != nil {
+			return nil, errors.Wrap(err, "failed to gzip userdata")
+		}
+
+		if err := gz.Close(); err != nil {
+			return nil, errors.Wrap(err, "failed to gzip userdata")
+		}
+
+		input.UserData = aws.String(base64.StdEncoding.EncodeToString(buf.Bytes()))
 	}
 
 	if len(i.SecurityGroupIDs) > 0 {
@@ -412,21 +426,21 @@ func (s *Service) runInstance(role string, i *v1alpha1.Instance) (*v1alpha1.Inst
 		return nil, errors.Errorf("no instance returned for reservation %v", out.GoString())
 	}
 
-	s.scope.EC2.WaitUntilInstanceRunning(&ec2.DescribeInstancesInput{InstanceIds: []*string{out.Instances[0].InstanceId}})
-	return converters.SDKToInstance(out.Instances[0]), nil
+	err = s.scope.EC2.WaitUntilInstanceRunning(&ec2.DescribeInstancesInput{InstanceIds: []*string{out.Instances[0].InstanceId}})
+	return converters.SDKToInstance(out.Instances[0]), err
 }
 
 // UpdateInstanceSecurityGroups modifies the security groups of the given
 // EC2 instance.
 func (s *Service) UpdateInstanceSecurityGroups(instanceID string, ids []string) error {
-	klog.V(2).Infof("Attempting to update security groups on instance %q", instanceID)
+	s.scope.V(2).Info("Attempting to update security groups on instance", "instance-id", instanceID)
 
 	enis, err := s.getInstanceENIs(instanceID)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get ENIs for instance %q", instanceID)
 	}
 
-	klog.V(3).Infof("Found %v ENIs on instance %q", len(enis), instanceID)
+	s.scope.V(3).Info("Found ENIs on instance", "number-of-enis", len(enis), "instance-id", instanceID)
 
 	for _, eni := range enis {
 		input := &ec2.ModifyNetworkInterfaceAttributeInput{
@@ -447,11 +461,11 @@ func (s *Service) UpdateInstanceSecurityGroups(instanceID string, ids []string) 
 // We may not always have to perform each action, so we check what we're
 // receiving to avoid calling AWS if we don't need to.
 func (s *Service) UpdateResourceTags(resourceID *string, create map[string]string, remove map[string]string) error {
-	klog.V(2).Infof("Attempting to update tags on resource %q", *resourceID)
+	s.scope.V(2).Info("Attempting to update tags on resource", "resource-id", *resourceID)
 
 	// If we have anything to create or update
 	if len(create) > 0 {
-		klog.V(2).Infof("Attempting to create tags on resource %q", *resourceID)
+		s.scope.V(2).Info("Attempting to create tags on resource", "resource-id", *resourceID)
 
 		// Convert our create map into an array of *ec2.Tag
 		createTagsInput := converters.MapToTags(create)
@@ -470,7 +484,7 @@ func (s *Service) UpdateResourceTags(resourceID *string, create map[string]strin
 
 	// If we have anything to remove
 	if len(remove) > 0 {
-		klog.V(2).Infof("Attempting to delete tags on resource %q", *resourceID)
+		s.scope.V(2).Info("Attempting to delete tags on resource", "resource-id", *resourceID)
 
 		// Convert our remove map into an array of *ec2.Tag
 		removeTagsInput := converters.MapToTags(remove)
