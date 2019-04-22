@@ -19,6 +19,7 @@ package ec2
 import (
 	"fmt"
 
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/aws/converters"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/aws/filter"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/aws/tags"
 
@@ -75,14 +76,24 @@ func (s *Service) allocateAddress(role string) (string, error) {
 }
 
 func (s *Service) describeAddresses(role string) (*ec2.DescribeAddressesOutput, error) {
-	x := []*ec2.Filter{filter.EC2.Cluster(s.scope.Name())}
+	x := []*ec2.Filter{}
 	if role != "" {
 		x = append(x, filter.EC2.ProviderRole(role))
 	}
 
-	return s.scope.EC2.DescribeAddresses(&ec2.DescribeAddressesInput{
+	out, err := s.scope.EC2.DescribeAddresses(&ec2.DescribeAddressesInput{
 		Filters: x,
 	})
+
+	if err != nil {
+		return errors.Wrapf(err, "failed to describe elastic IPs %q", err)
+	}
+
+	for _, ip := range out.Addresses {
+		if converters.TagsToMap(ip.Tags) {
+			// todo: add logic here to add back filter.EC2.Cluster
+		}
+	}
 }
 
 func (s *Service) releaseAddresses() error {
