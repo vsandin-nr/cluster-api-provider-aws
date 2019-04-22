@@ -162,7 +162,6 @@ func (s *Service) describeSecurityGroupsByName() (map[string]*v1alpha1.SecurityG
 	input := &ec2.DescribeSecurityGroupsInput{
 		Filters: []*ec2.Filter{
 			filter.EC2.VPC(s.scope.VPC().ID),
-			filter.EC2.Cluster(s.scope.Name()),
 		},
 	}
 
@@ -171,8 +170,16 @@ func (s *Service) describeSecurityGroupsByName() (map[string]*v1alpha1.SecurityG
 		return nil, errors.Wrapf(err, "failed to describe security groups in vpc %q", s.scope.VPC().ID)
 	}
 
-	res := make(map[string]*v1alpha1.SecurityGroup, len(out.SecurityGroups))
+	var filtered []*ec2.SecurityGroup
 	for _, ec2sg := range out.SecurityGroups {
+		tags := converters.TagsToMap(ec2sg.Tags)
+		if tags.HasOwned(s.scope.Name()) || tags["sigs.k8s.io/cluster-api-provider-aws/managed"] == "true" {
+			filtered = append(filtered, ec2sg)
+		}
+	}
+
+	res := make(map[string]*v1alpha1.SecurityGroup, len(filtered))
+	for _, ec2sg := range filtered {
 		sg := &v1alpha1.SecurityGroup{
 			ID:   *ec2sg.GroupId,
 			Name: *ec2sg.GroupName,
