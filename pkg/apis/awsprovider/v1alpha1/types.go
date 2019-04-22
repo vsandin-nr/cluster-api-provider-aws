@@ -431,5 +431,5 @@ type Instance struct {
 	RootDeviceSize int64 `json:"rootDeviceSize,omitempty"`
 
 	// The tags associated with the instance.
-	Tags map[string]string `json:"tags,omitempty"`
+	Tags tags.Map `json:"tags,omitempty"`
 }

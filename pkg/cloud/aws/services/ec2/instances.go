@@ -46,7 +46,9 @@ func (s *Service) InstanceByTags(machine *actuators.MachineScope) (*v1alpha1.Ins
 	input := &ec2.DescribeInstancesInput{
 		Filters: []*ec2.Filter{
 			filter.EC2.VPC(s.scope.VPC().ID),
-			filter.EC2.ClusterOwned(s.scope.Name()),
+			// TODO: reinstate after 0.2.1
+			// Backwards compatibility for https://github.com/kubernetes-sigs/cluster-api-provider-aws/pull/706
+			// filter.EC2.ClusterOwned(s.scope.Name()),
 			filter.EC2.Name(machine.Name()),
 			filter.EC2.InstanceStates(ec2.InstanceStateNamePending, ec2.InstanceStateNameRunning),
 		},
@@ -65,7 +67,15 @@ func (s *Service) InstanceByTags(machine *actuators.MachineScope) (*v1alpha1.Ins
 	// match
 	for _, res := range out.Reservations {
 		for _, inst := range res.Instances {
-			return s.SDKToInstance(inst)
+			i, err := s.SDKToInstance(inst)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to convert EC2 instance to v1alpha.Instance")
+			}
+			// TODO: remove after 0.2.1
+			// Backwards compatibility for https://github.com/kubernetes-sigs/cluster-api-provider-aws/pull/706
+			if i.Tags.HasOwned(s.scope.Name()) || i.Tags["sigs.k8s.io/cluster-api-provider-aws/managed"] == "true" {
+				return i, nil
+			}
 		}
 	}
 
