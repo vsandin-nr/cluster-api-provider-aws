@@ -85,10 +85,13 @@ func (s *Service) reconcileSecurityGroups() error {
 		// TODO(vincepri): validate / update security group if necessary.
 		s.scope.SecurityGroups()[role] = existing
 
+		tagParams := s.getSecurityGroupTagParams(existing.Name, role)
+		tagParams.ResourceID = aws.StringValue(sg.GroupId)
+
 		// Make sure tags are up to date.
 		err := tags.Ensure(existing.Tags, &tags.ApplyParams{
 			EC2Client:   s.scope.EC2,
-			BuildParams: s.getSecurityGroupTagParams(existing.Name, role),
+			BuildParams: tagParams,
 		})
 
 		if err != nil {
