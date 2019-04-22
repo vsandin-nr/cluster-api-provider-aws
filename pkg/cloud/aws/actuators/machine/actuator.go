@@ -305,6 +305,11 @@ func (a *Actuator) isMachineOutdated(machineSpec *v1alpha1.AWSMachineProviderSpe
 		errs = append(errs, errors.Errorf("SSH key name cannot be mutated from %q to %q", aws.StringValue(instance.KeyName), machineSpec.KeyName))
 	}
 
+	// Root Device Size
+	if machineSpec.RootDeviceSize != instance.RootDeviceSize {
+		errs = append(errs, errors.Errorf("Root volume size cannot be mutated from %v to %v", instance.RootDeviceSize, machineSpec.RootDeviceSize))
+	}
+
 	// Subnet ID
 	// machineSpec.Subnet is a *AWSResourceReference and could technically be
 	// a *string, ARN or Filter. However, elsewhere in the code it is only used
@@ -447,13 +452,13 @@ func (a *Actuator) Exists(ctx context.Context, cluster *clusterv1.Cluster, machi
 	if machine.Status.NodeRef == nil {
 		nodeRef, err := a.getNodeReference(scope)
 		if err != nil {
-			// non critical error
 			a.log.Info("Failed to set nodeRef", "error", err)
+			// non critical error
 			return true, nil
 		}
 
 		scope.Machine.Status.NodeRef = nodeRef
-		a.log.Info("Setting machine's nodeRef", "machine-name", scope.Name(), "machine-namespace", scope.Namespace(), "nodeRef", nodeRef.Name)
+		a.log.V(2).Info("Setting machine's nodeRef", "machine-name", scope.Name(), "machine-namespace", scope.Namespace(), "nodeRef", nodeRef.Name)
 	}
 
 	return true, nil
