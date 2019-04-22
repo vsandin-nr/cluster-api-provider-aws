@@ -86,14 +86,19 @@ func (s *Service) describeAddresses(role string) (*ec2.DescribeAddressesOutput, 
 	})
 
 	if err != nil {
-		return errors.Wrapf(err, "failed to describe elastic IPs %q", err)
+		return nil, errors.Wrapf(err, "failed to describe elastic IPs %q", err)
 	}
 
+	var filtered []*ec2.Address
+
 	for _, ip := range out.Addresses {
-		if converters.TagsToMap(ip.Tags) {
-			// todo: add logic here to add back filter.EC2.Cluster
+		tags := converters.TagsToMap(ip.Tags)
+		if tags.HasOwned(s.scope.Name()) || tags["sigs.k8s.io/cluster-api-provider-aws/managed"] == "true" {
+			filtered = append(filtered, ip)
 		}
 	}
+
+	return &ec2.DescribeAddressesOutput{Addresses: filtered}, nil
 }
 
 func (s *Service) releaseAddresses() error {
