@@ -22,3 +22,5 @@ bases:
 
 patches:
   - rbac_role_binding_patch.yaml
+  - manager_image_patch.yaml
+  - manager_credentials_patch.yaml
