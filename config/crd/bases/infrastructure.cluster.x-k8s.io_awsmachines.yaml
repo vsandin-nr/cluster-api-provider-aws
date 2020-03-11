@@ -1,10 +1,10 @@
 
 ---
-apiVersion: apiextensions.k8s.io/v1
+apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.6-0.20200226180227-d6efdcdd90e2
+    controller-gen.kubebuilder.io/version: v0.2.4
   creationTimestamp: null
   name: awsmachines.infrastructure.cluster.x-k8s.io
 spec:
@@ -16,7 +16,11 @@ spec:
     listKind: AWSMachineList
     plural: awsmachines
     singular: awsmachine
+  preserveUnknownFields: false
   scope: Namespaced
+  subresources:
+    status: {}
+  version: v1alpha2
   versions:
   - name: v1alpha2
     schema:
@@ -274,27 +278,25 @@ spec:
         type: object
     served: true
     storage: false
-    subresources:
-      status: {}
   - additionalPrinterColumns:
-    - description: Cluster to which this AWSMachine belongs
-      jsonPath: .metadata.labels.cluster\.x-k8s\.io/cluster-name
+    - JSONPath: .metadata.labels.cluster\.x-k8s\.io/cluster-name
+      description: Cluster to which this AWSMachine belongs
       name: Cluster
       type: string
-    - description: EC2 instance state
-      jsonPath: .status.instanceState
+    - JSONPath: .status.instanceState
+      description: EC2 instance state
       name: State
       type: string
-    - description: Machine ready status
-      jsonPath: .status.ready
+    - JSONPath: .status.ready
+      description: Machine ready status
       name: Ready
       type: string
-    - description: EC2 instance ID
-      jsonPath: .spec.providerID
+    - JSONPath: .spec.providerID
+      description: EC2 instance ID
       name: InstanceID
       type: string
-    - description: Machine object which owns with this AWSMachine
-      jsonPath: .metadata.ownerReferences[?(@.kind=="Machine")].name
+    - JSONPath: .metadata.ownerReferences[?(@.kind=="Machine")].name
+      description: Machine object which owns with this AWSMachine
       name: Machine
       type: string
     name: v1alpha3
@@ -590,8 +592,6 @@ spec:
         type: object
     served: true
     storage: true
-    subresources:
-      status: {}
 status:
   acceptedNames:
     kind: ""
