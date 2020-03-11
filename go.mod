@@ -22,7 +22,7 @@ require (
 	k8s.io/apimachinery v0.0.0-20191121015412-41065c7a8c2a
 	k8s.io/client-go v0.0.0-20190918160344-1fbdaa4c8d90
 	k8s.io/klog v1.0.0
-	k8s.io/utils v0.0.0-20191030222137-2b95a09bc58d
-	sigs.k8s.io/cluster-api v0.2.6-0.20200204220036-b2ab4c203c74
-	sigs.k8s.io/controller-runtime v0.4.0
+	k8s.io/utils v0.0.0-20191114184206-e782cd3c129f
+	sigs.k8s.io/cluster-api v0.3.0-rc.2
+	sigs.k8s.io/controller-runtime v0.5.0
 )
