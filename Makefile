@@ -45,6 +45,8 @@ E2E_DATA_DIR ?= $(REPO_ROOT)/test/e2e_new/data
 E2E_CONF_PATH  ?= $(E2E_DATA_DIR)/e2e_conf.yaml
 KUBETEST_CONF_PATH ?= $(abspath $(E2E_DATA_DIR)/kubetest/conformance.yaml)
 KUBETEST_FAST_CONF_PATH ?= $(abspath $(REPO_ROOT)/test/e2e_new/data/kubetest/conformance-fast.yaml)
+CONFORMANCE_CI_TEMPLATE := $(ARTIFACTS)/templates/cluster-template-conformance-ci-artifacts.yaml
+EXP_DIR := exp
 
 # Binaries.
 CLUSTERCTL := $(BIN_DIR)/clusterctl
@@ -291,6 +293,7 @@ generate-go:
 generate-go-core: $(CONTROLLER_GEN) $(CONVERSION_GEN) $(MOCKGEN) $(DEFAULTER_GEN) ## Runs Go related generate targets
 	$(CONTROLLER_GEN) \
 		paths=./api/... \
+		paths=./$(EXP_DIR)/api/... \
 		object:headerFile=./hack/boilerplate/boilerplate.generatego.txt
 
 	$(CONTROLLER_GEN) \
@@ -323,12 +326,14 @@ generate-manifests:
 generate-core-manifests: $(CONTROLLER_GEN) ## Generate manifests e.g. CRD, RBAC etc.
 	$(CONTROLLER_GEN) \
 		paths=./api/... \
+		paths=./$(EXP_DIR)/api/... \
 		crd:crdVersions=v1 \
 		output:crd:dir=$(CRD_ROOT) \
 		output:webhook:dir=$(WEBHOOK_ROOT) \
 		webhook
 	$(CONTROLLER_GEN) \
 		paths=./controllers/... \
+		paths=./$(EXP_DIR)/controllers/... \
 		output:rbac:dir=$(RBAC_ROOT) \
 		rbac:roleName=manager-role
 
