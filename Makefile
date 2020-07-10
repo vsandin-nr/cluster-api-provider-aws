@@ -41,6 +41,7 @@ TEST_E2E_NEW_DIR := test/e2e_new
 
 # Files
 E2E_CONF_PATH  ?= ${REPO_ROOT}/test/e2e_new/e2e_conf.yaml
+EXP_DIR := exp
 
 # Binaries.
 CLUSTERCTL := $(BIN_DIR)/clusterctl
@@ -210,6 +211,7 @@ generate: ## Generate code
 generate-go: $(CONTROLLER_GEN) $(CONVERSION_GEN) $(MOCKGEN) $(DEFAULTER_GEN) ## Runs Go related generate targets
 	$(CONTROLLER_GEN) \
 		paths=./api/... \
+                paths=./$(EXP_DIR)/api/... \
 		object:headerFile=./hack/boilerplate/boilerplate.generatego.txt
 
 	$(CONTROLLER_GEN) \
@@ -231,12 +233,14 @@ generate-go: $(CONTROLLER_GEN) $(CONVERSION_GEN) $(MOCKGEN) $(DEFAULTER_GEN) ## 
 generate-manifests: $(CONTROLLER_GEN) ## Generate manifests e.g. CRD, RBAC etc.
 	$(CONTROLLER_GEN) \
 		paths=./api/... \
+                paths=./$(EXP_DIR)/api/... \
 		crd:crdVersions=v1 \
 		output:crd:dir=$(CRD_ROOT) \
 		output:webhook:dir=$(WEBHOOK_ROOT) \
 		webhook
 	$(CONTROLLER_GEN) \
 		paths=./controllers/... \
+                paths=./$(EXP_DIR)/controllers/... \
 		output:rbac:dir=$(RBAC_ROOT) \
 		rbac:roleName=manager-role
 

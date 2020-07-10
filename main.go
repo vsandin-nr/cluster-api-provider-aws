@@ -29,15 +29,18 @@ import (
 	cgrecord "k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 	"k8s.io/klog/klogr"
-	infrav1alpha2 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha2"
-	infrav1alpha3 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
-	"sigs.k8s.io/cluster-api-provider-aws/controllers"
-	"sigs.k8s.io/cluster-api-provider-aws/pkg/record"
-	"sigs.k8s.io/cluster-api-provider-aws/version"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+
+	infrav1alpha2 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha2"
+	infrav1alpha3 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
+	"sigs.k8s.io/cluster-api-provider-aws/controllers"
+	expinfrav1alpha3 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
+	expcontrollers "sigs.k8s.io/cluster-api-provider-aws/exp/controllers"
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/record"
+	"sigs.k8s.io/cluster-api-provider-aws/version"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -51,6 +54,7 @@ func init() {
 	_ = infrav1alpha2.AddToScheme(scheme)
 	_ = infrav1alpha3.AddToScheme(scheme)
 	_ = clusterv1.AddToScheme(scheme)
+	_ = expinfrav1alpha3.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -220,6 +224,22 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "AWSClusterList")
 			os.Exit(1)
 		}
+	}
+	if err = (&expcontrollers.AWSMachinePoolReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("AWSMachinePool"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AWSMachinePool")
+		os.Exit(1)
+	}
+	if err = (&expcontrollers.AWSLaunchTemplateReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("AWSLaunchTemplate"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AWSLaunchTemplate")
+		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
 

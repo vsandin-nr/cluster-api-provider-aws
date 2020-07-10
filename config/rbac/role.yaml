@@ -44,6 +44,46 @@ rules:
   - list
   - watch
 - apiGroups:
+  - exp.infrastructure.cluster.x-k8s.io
+  resources:
+  - awslaunchtemplates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - exp.infrastructure.cluster.x-k8s.io
+  resources:
+  - awslaunchtemplates/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - exp.infrastructure.cluster.x-k8s.io
+  resources:
+  - awsmachinepools
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - exp.infrastructure.cluster.x-k8s.io
+  resources:
+  - awsmachinepools/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
   - awsclusters
