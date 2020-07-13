@@ -139,24 +139,31 @@ func (s *Service) CreateInstance(scope *scope.MachineScope, userData []byte) (*i
 			return nil, err
 		}
 
-		imageLookupFormat := scope.AWSMachine.Spec.ImageLookupFormat
-		if imageLookupFormat == "" {
-			imageLookupFormat = scope.AWSCluster.Spec.ImageLookupFormat
-		}
+		if s.shouldUseEksAMI() {
+			input.ImageID, err = s.eksAMILookup(*scope.Machine.Spec.Version)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			imageLookupFormat := scope.AWSMachine.Spec.ImageLookupFormat
+			if imageLookupFormat == "" {
+				imageLookupFormat = scope.AWSCluster.Spec.ImageLookupFormat
+			}
 
-		imageLookupOrg := scope.AWSMachine.Spec.ImageLookupOrg
-		if imageLookupOrg == "" {
-			imageLookupOrg = scope.AWSCluster.Spec.ImageLookupOrg
-		}
+			imageLookupOrg := scope.AWSMachine.Spec.ImageLookupOrg
+			if imageLookupOrg == "" {
+				imageLookupOrg = scope.AWSCluster.Spec.ImageLookupOrg
+			}
 
-		imageLookupBaseOS := scope.AWSMachine.Spec.ImageLookupBaseOS
-		if imageLookupBaseOS == "" {
-			imageLookupBaseOS = scope.AWSCluster.Spec.ImageLookupBaseOS
-		}
+			imageLookupBaseOS := scope.AWSMachine.Spec.ImageLookupBaseOS
+			if imageLookupBaseOS == "" {
+				imageLookupBaseOS = scope.AWSCluster.Spec.ImageLookupBaseOS
+			}
 
-		input.ImageID, err = s.defaultAMILookup(imageLookupFormat, imageLookupOrg, imageLookupBaseOS, *scope.Machine.Spec.Version)
-		if err != nil {
-			return nil, err
+			input.ImageID, err = s.defaultAMILookup(imageLookupFormat, imageLookupOrg, imageLookupBaseOS, *scope.Machine.Spec.Version)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -769,6 +776,11 @@ func (s *Service) DetachSecurityGroupsFromNetworkInterface(groups []string, inte
 		return errors.Wrapf(err, "failed to modify interface %q", interfaceID)
 	}
 	return nil
+}
+
+func (s *Service) shouldUseEksAMI() bool {
+	// todo(rudoi): implement after AWSManagedControlplane is working
+	return false
 }
 
 // filterGroups filters a list for a string.
