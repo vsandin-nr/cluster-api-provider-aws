@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
@@ -30,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
-	infrav1alpha3 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
+	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/scope"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/asg"
@@ -43,6 +44,7 @@ type AWSMachinePoolReconciler struct {
 	Log               logr.Logger
 	Scheme            *runtime.Scheme
 	asgServiceFactory func(*scope.ClusterScope) services.ASGMachineInterface
+	ec2ServiceFactory func(*scope.ClusterScope) services.EC2MachineInterface
 }
 
 func (r *AWSMachinePoolReconciler) getASGService(scope *scope.ClusterScope) services.ASGMachineInterface {
@@ -52,20 +54,36 @@ func (r *AWSMachinePoolReconciler) getASGService(scope *scope.ClusterScope) serv
 	return asg.NewService(scope)
 }
 
+func (r *AWSMachinePoolReconciler) getEC2Service(scope *scope.ClusterScope) services.EC2MachineInterface {
+	if r.ec2ServiceFactory != nil {
+		return r.ec2ServiceFactory(scope)
+	}
+
+	return ec2.NewService(scope)
+}
+
 // +kubebuilder:rbac:groups=exp.infrastructure.cluster.x-k8s.io,resources=awsmachinepools,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=exp.infrastructure.cluster.x-k8s.io,resources=awsmachinepools/status,verbs=get;update;patch
 
 // Reconcile TODO: add comment bc exported
 func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
-	logger := r.Log.WithValues("awsmachinepool", req.NamespacedName)
+	ctx := context.TODO()
+	logger := r.Log.WithValues("namespace", req.Namespace, "awsMachinePool", req.Name)
 
-	// make the aws launch template?
+	// Fetch the AWSMachinePool .
+	awsMachinePool := &expinfrav1.AWSMachinePool{}
+	err := r.Get(ctx, req.NamespacedName, awsMachinePool)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
 
 	// Create the cluster scope
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
 		Client:  r.Client,
-		Logger:  r.Log,
+		Logger:  logger,
 		Cluster: &clusterv1.Cluster{},
 		AWSCluster: &infrav1.AWSCluster{
 			Spec: infrav1.AWSClusterSpec{
@@ -97,7 +115,7 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 
 func (r *AWSMachinePoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&infrav1alpha3.AWSMachinePool{}).
+		For(&expinfrav1.AWSMachinePool{}).
 		Complete(r)
 }
 

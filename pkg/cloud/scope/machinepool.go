@@ -22,6 +22,7 @@ import (
 	"k8s.io/klog/klogr"
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -71,34 +72,56 @@ func NewMachinePoolScope(params MachinePoolScopeParams) (*MachinePoolScope, erro
 		return nil, errors.New("client is required when creating a MachinePoolScope")
 	}
 	if params.MachinePool == nil {
-		return nil, errors.New("machine pool is required when creating a MachinePoolScope")
+		return nil, errors.New("machinepool is required when creating a MachinePoolScope")
 	}
-	// if params.Cluster == nil {
-	// 	return nil, errors.New("cluster is required when creating a MachinePoolScope")
-	// }
-	// if params.AWSMachine == nil {
-	// 	return nil, errors.New("aws machine is required when creating a MachinePoolScope")
-	// }
-	// if params.AWSCluster == nil {
-	// 	return nil, errors.New("aws cluster is required when creating a MachinePoolScope")
-	// }
+	if params.Cluster == nil {
+		return nil, errors.New("cluster is required when creating a MachinePoolScope")
+	}
+	if params.AWSMachinePool == nil {
+		return nil, errors.New("aws machine pool is required when creating a MachinePoolScope")
+	}
+	if params.AWSCluster == nil {
+		return nil, errors.New("aws cluster is required when creating a MachinePoolScope")
+	}
 
 	if params.Logger == nil {
 		params.Logger = klogr.New()
 	}
 
-	// helper, err := patch.NewHelper(params.AWSMachine, params.Client)
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, "failed to init patch helper")
-	// }
+	helper, err := patch.NewHelper(params.AWSMachinePool, params.Client)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to init patch helper")
+	}
 	return &MachinePoolScope{
-		Logger: params.Logger,
-		// client:      params.Client,
-		// patchHelper: helper,
+		Logger:      params.Logger,
+		client:      params.Client,
+		patchHelper: helper,
 
-		// Cluster:        params.Cluster,
-		// MachinePool:    params.MachinePool,
-		// AWSCluster:     params.AWSCluster,
+		Cluster:        params.Cluster,
+		MachinePool:    params.MachinePool,
+		AWSCluster:     params.AWSCluster,
 		AWSMachinePool: params.AWSMachinePool,
 	}, nil
+}
+
+// MachinePoolScope defines a scope defined around a machinepool and its cluster.
+type MachinePoolScope struct {
+	logr.Logger
+	client      client.Client
+	patchHelper *patch.Helper
+
+	Cluster        *clusterv1.Cluster
+	MachinePool    *expclusterv1.MachinePool
+	AWSCluster     *infrav1.AWSCluster
+	AWSMachinePool *expinfrav1.AWSMachinePool
+}
+
+// Name returns the AWSMachinePool name.
+func (m *MachinePoolScope) Name() string {
+	return m.AWSMachinePool.Name
+}
+
+// Namespace returns the namespace name.
+func (m *MachinePoolScope) Namespace() string {
+	return m.AWSMachinePool.Namespace
 }
