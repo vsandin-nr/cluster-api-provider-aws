@@ -20,22 +20,62 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+type LaunchTemplateSpecification struct {
+	LaunchTemplateID   string `json:"launchTemplateId,omitempty"`
+	LaunchTemplateName string `json:"launchTemplateName,omitempty"`
+	Version            string `json:"version,omitempty"`
+}
+type LaunchTemplate struct {
+	LaunchTemplateSpecification LaunchTemplateSpecification `json:launchTemplateSpecification,omitempty"`
+	Overrides                   []struct {
+		InstanceType string `json:"instanceType"`
+	} `json:"overrides,omitempty"`
+}
+type InstancesDistribution struct {
+	OnDemandAllocationStrategy          string `json:"onDemandAllocationStrategy,omitempty"`
+	OnDemandBaseCapacity                int    `json:"onDemandBaseCapacity,omitempty"`
+	OnDemandPercentageAboveBaseCapacity int    `json:"onDemandPercentageAboveBaseCapacity,omitempty"`
+	SpotAllocationStrategy              string `json:"spotAllocationStrategy,omitempty"`
+}
+type MixedInstancesPolicy struct {
+	LaunchTemplate        LaunchTemplate        `json:"launchTemplate,omitempty"`
+	InstancesDistribution InstancesDistribution `json:"instancesDistribution,omitempty"`
+}
+type LaunchTemplate struct {
+	LaunchTemplateID   string `json:"launchTemplateId,omitempty"`
+	LaunchTemplateName string `json:"launchTemplateName,omitempty"`
+	Version            string `json:"version,omitempty"`
+}
+type Tags struct {
+	ResourceID        string `json:"resourceId,omitempty"`
+	ResourceType      string `json:"resourceType,omitempty"`
+	Key               string `json:"key,omitempty"`
+	Value             string `json:"value,omitempty"`
+	PropagateAtLaunch bool   `json:"propagateAtLaunch,omitempty"`
+}
 
 // AWSMachinePoolSpec defines the desired state of AWSMachinePool
 type AWSMachinePoolSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of AWSMachinePool. Edit AWSMachinePool_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	AutoScalingGroupName             string               `json:"autoScalingGroupName,omitempty"`
+	AutoScalingGroupARN              string               `json:"autoScalingGroupARN,omitempty"`
+	MixedInstancesPolicy             MixedInstancesPolicy `json:"mixedInstancesPolicy,omitempty"`
+	MinSize                          int                  `json:"minSize,omitempty"`
+	MaxSize                          int                  `json:"maxSize,omitempty"`
+	DesiredCapacity                  int                  `json:"desiredCapacity,omitempty"`
+	DefaultCooldown                  int                  `json:"defaultCooldown,omitempty"`
+	AvailabilityZones                []string             `json:"availabilityZones,omitempty"`
+	HealthCheckType                  string               `json:"healthCheckType,omitempty"`
+	HealthCheckGracePeriod           int                  `json:"healthCheckGracePeriod,omitempty"`
+	VPCZoneIdentifier                string               `json:"vpcZoneIdentifier,omitempty"`
+	Tags                             []Tags               `json:"tags,omitempty"`
+	TerminationPolicies              []string             `json:"terminationPolicies,omitempty"`
+	NewInstancesProtectedFromScaleIn bool                 `json:"newInstancesProtectedFromScaleIn,omitempty"`
+	ServiceLinkedRoleARN             string               `json:"serviceLinkedRoleARN,omitempty"`
 }
 
 // AWSMachinePoolStatus defines the observed state of AWSMachinePool
 type AWSMachinePoolStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	AutoScalingGroupARN string `json:"autoScalingGroupARN,omitempty"`
 }
 
 // +kubebuilder:object:root=true
