@@ -25,21 +25,21 @@ import (
 
 // EBS
 type EBS struct {
-	Encrypted  string
-	VolumeSize string
-	VolumeType string
+	Encrypted  string `json:"encrypted,omitempty"`
+	VolumeSize string `json:"volumeSize,omitempty"`
+	VolumeType string `json:"volumeType,omitempty"`
 }
 
 // BlockDeviceMappings
 type BlockDeviceMapping struct {
-	DeviceName string
-	Ebs        EBS
+	DeviceName string `json:"deviceName,omitempty"`
+	Ebs        EBS    `json:"ebs,omitempty"`
 }
 
 // NetworkInterface
 type NetworkInterface struct {
-	DeviceIndex string
-	Groups      []string
+	DeviceIndex string   `json:"deviceIndex,omitempty"`
+	Groups      []string `json:"groups,omitempty"`
 }
 
 // AWSLaunchTemplateSpec defines the desired state of AWSLaunchTemplate
@@ -71,6 +71,7 @@ type AWSLaunchTemplateSpec struct {
 // AWSLaunchTemplateStatus defines the observed state of AWSLaunchTemplate
 type AWSLaunchTemplateStatus struct {
 	LaunchTemplateID bool `json:"launchtemplateid"`
+	Version          bool `json:"version"`
 }
 
 // +kubebuilder:object:root=true
