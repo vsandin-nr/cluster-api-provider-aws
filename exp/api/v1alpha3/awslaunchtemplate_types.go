@@ -46,12 +46,12 @@ type NetworkInterface struct {
 type AWSLaunchTemplateSpec struct {
 	// all the things needed for a launch template
 
-	IamInstanceProfile  string               `json:"iaminstanceprofile,omitempty"`
-	BlockDeviceMappings []BlockDeviceMapping `json:"blockdevicemappings,omitempty"`
-	NetworkInterfaces   []NetworkInterface   `json:"networkinterfaces,omitempty"`
+	IamInstanceProfile  string               `json:"iamInstanceProfile,omitempty"`
+	BlockDeviceMappings []BlockDeviceMapping `json:"blockDeviceMappings,omitempty"`
+	NetworkInterfaces   []NetworkInterface   `json:"networkInterfaces,omitempty"`
 
 	// todo: use a helper
-	ImageId string `json:"imageid,omitempty"`
+	ImageId string `json:"imageId,omitempty"`
 
 	// InstanceType is the type of instance to create. Example: m4.xlarge
 	InstanceType string `json:"instanceType,omitempty"`
