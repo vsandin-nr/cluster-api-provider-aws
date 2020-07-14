@@ -26,11 +26,14 @@ type LaunchTemplateSpecification struct {
 	Version            string `json:"version,omitempty"`
 }
 type LaunchTemplate struct {
-	LaunchTemplateSpecification LaunchTemplateSpecification `json:launchTemplateSpecification,omitempty"`
-	Overrides                   []struct {
-		InstanceType string `json:"instanceType"`
-	} `json:"overrides,omitempty"`
+	LaunchTemplateSpecification LaunchTemplateSpecification `json:"launchTemplateSpecification,omitempty"`
+	Overrides                   []Overrides                 `json:"overrides,omitempty"`
 }
+
+type Overrides struct {
+	InstanceType string `json:"InstanceType"`
+}
+
 type InstancesDistribution struct {
 	OnDemandAllocationStrategy          string `json:"onDemandAllocationStrategy,omitempty"`
 	OnDemandBaseCapacity                int    `json:"onDemandBaseCapacity,omitempty"`
@@ -41,11 +44,7 @@ type MixedInstancesPolicy struct {
 	LaunchTemplate        LaunchTemplate        `json:"launchTemplate,omitempty"`
 	InstancesDistribution InstancesDistribution `json:"instancesDistribution,omitempty"`
 }
-type LaunchTemplate struct {
-	LaunchTemplateID   string `json:"launchTemplateId,omitempty"`
-	LaunchTemplateName string `json:"launchTemplateName,omitempty"`
-	Version            string `json:"version,omitempty"`
-}
+
 type Tags struct {
 	ResourceID        string `json:"resourceId,omitempty"`
 	ResourceType      string `json:"resourceType,omitempty"`
@@ -57,7 +56,6 @@ type Tags struct {
 // AWSMachinePoolSpec defines the desired state of AWSMachinePool
 type AWSMachinePoolSpec struct {
 	AutoScalingGroupName             string               `json:"autoScalingGroupName,omitempty"`
-	AutoScalingGroupARN              string               `json:"autoScalingGroupARN,omitempty"`
 	MixedInstancesPolicy             MixedInstancesPolicy `json:"mixedInstancesPolicy,omitempty"`
 	MinSize                          int                  `json:"minSize,omitempty"`
 	MaxSize                          int                  `json:"maxSize,omitempty"`
