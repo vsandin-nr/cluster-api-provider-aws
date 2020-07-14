@@ -23,19 +23,54 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// EBS
+type EBS struct {
+	Encrypted  string
+	VolumeSize string
+	VolumeType string
+}
+
+// BlockDeviceMappings
+type BlockDeviceMapping struct {
+	DeviceName string
+	Ebs        EBS
+}
+
+// NetworkInterface
+type NetworkInterface struct {
+	DeviceIndex string
+	Groups      []string
+}
+
 // AWSLaunchTemplateSpec defines the desired state of AWSLaunchTemplate
 type AWSLaunchTemplateSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// all the things needed for a launch template
 
-	// Foo is an example field of AWSLaunchTemplate. Edit AWSLaunchTemplate_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	IamInstanceProfile  string               `json:"iaminstanceprofile,omitempty"`
+	BlockDeviceMappings []BlockDeviceMapping `json:"blockdevicemappings,omitempty"`
+	NetworkInterfaces   []NetworkInterface   `json:"networkinterfaces,omitempty"`
+
+	// todo: use a helper
+	ImageId string `json:"imageid,omitempty"`
+
+	// InstanceType is the type of instance to create. Example: m4.xlarge
+	InstanceType string `json:"instanceType,omitempty"`
+
+	// UncompressedUserData specify whether the user data is gzip-compressed before it is sent to ec2 instance.
+	// cloud-init has built-in support for gzip-compressed user data
+	// user data stored in aws secret manager is always gzip-compressed.
+	//
+	// +optional
+	UncompressedUserData *bool `json:"uncompressedUserData,omitempty"`
+
+	// SSHKeyName is the name of the ssh key to attach to the instance. Valid values are empty string (do not use SSH keys), a valid SSH key name, or omitted (use the default SSH key name)
+	// +optional
+	SSHKeyName *string `json:"sshKeyName,omitempty"`
 }
 
 // AWSLaunchTemplateStatus defines the observed state of AWSLaunchTemplate
 type AWSLaunchTemplateStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	LaunchTemplateID bool `json:"launchtemplateid"`
 }
 
 // +kubebuilder:object:root=true
