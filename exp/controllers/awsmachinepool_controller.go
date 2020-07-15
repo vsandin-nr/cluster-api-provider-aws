@@ -78,3 +78,37 @@ func (r *AWSMachinePoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&infrav1alpha3.AWSMachinePool{}).
 		Complete(r)
 }
+
+func (r *AWSMachinePoolReconciler) reconcileNormal(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) (ctrl.Result, error) {
+	clusterScope.Info("Handling things")
+
+	// Update or create
+	// findASG()
+
+	return ctrl.Result{}, nil
+}
+
+func (r *AWSMachinePoolReconciler) reconcileDelete(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) (ctrl.Result, error) {
+	clusterScope.Info("Handling things")
+	return ctrl.Result{}, nil
+}
+
+func (r *AWSMachinePoolReconciler) updatePool(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) (ctrl.Result, error) {
+	clusterScope.Info("Handling things")
+	return ctrl.Result{}, nil
+}
+
+func (r *AWSMachinePoolReconciler) createPool(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) (ctrl.Result, error) {
+	clusterScope.Info("Handling things")
+	return ctrl.Result{}, nil
+}
+
+func (r *AWSMachinePoolReconciler) findASG(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) (ctrl.Result, error) {
+	clusterScope.Info("Handling things")
+	// if instance is nil
+	//   createPool() (both launch template and ASG)
+	// else
+	//   updatePool()
+
+	return ctrl.Result{}, nil
+}
