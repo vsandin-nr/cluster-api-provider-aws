@@ -25,25 +25,23 @@ kind: AWSMachinePool
 metadata:
   name: capa-mp-0
 spec:
-  desiredCapacity: 2
   minSize: 2
   maxSize: 10
   availabilityZones: us-east-1
   mixedInstancesPolicy:
     launchTemplate:
       overrides:
-        instanceType: "m5.2xlarge"
-        instanceType: "t2.2xlarge"
+        - instanceType: "m5.2xlarge"
+        - instanceType: "t2.2xlarge"
     instancesDistribution:
       onDemandAllocationStrategy: 70%
       spotAllocationStrategy: 30%
-  launchTemplate:
+  awsLaunchTemplate:
     iamInstanceProfile: 
-    blockDeviceMappings:
-    imageId: "ami-something"
+    blockDeviceMappings: 
+    imageId: "ami-06001cac528f2f10c"
     instanceType: "t2.medium"
-    uncompressedUserData: #controller can get this?
-    sshKeyName: confab_development
+    sshKeyName: "confab_development"
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
 kind: EKSConfig
