@@ -21,10 +21,14 @@ import (
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	infrav1alpha3 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/scope"
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/ec2"
 )
 
 // AWSMachinePoolReconciler reconciles a AWSMachinePool object
@@ -41,7 +45,30 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	_ = context.Background()
 	_ = r.Log.WithValues("awsmachinepool", req.NamespacedName)
 
-	// your logic here
+	// make the aws launch template?
+
+	// Create the cluster scope
+	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
+		Client:  r.Client,
+		Logger:  r.Log,
+		Cluster: &clusterv1.Cluster{},
+		AWSCluster: &infrav1.AWSCluster{
+			Spec: infrav1.AWSClusterSpec{
+				Region: "us-east-1",
+			},
+		},
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	clusterScope.Info("Handling things")
+
+	ec2svc := ec2.NewService(clusterScope)
+	_, err = ec2svc.GetLaunchTemplate()
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
