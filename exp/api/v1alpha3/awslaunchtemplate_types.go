@@ -23,58 +23,19 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// EBS
-type EBS struct {
-	Encrypted  string `json:"encrypted,omitempty"`
-	VolumeSize string `json:"volumeSize,omitempty"`
-	VolumeType string `json:"volumeType,omitempty"`
-}
-
-// BlockDeviceMappings
-type BlockDeviceMapping struct {
-	DeviceName string `json:"deviceName,omitempty"`
-	Ebs        EBS    `json:"ebs,omitempty"`
-}
-
-// NetworkInterface
-type NetworkInterface struct {
-	DeviceIndex string   `json:"deviceIndex,omitempty"`
-	Groups      []string `json:"groups,omitempty"`
-}
-
 // AWSLaunchTemplateSpec defines the desired state of AWSLaunchTemplate
 type AWSLaunchTemplateSpec struct {
 	// all the things needed for a launch template
 
-	IamInstanceProfile  string               `json:"iamInstanceProfile,omitempty"`
-	BlockDeviceMappings []BlockDeviceMapping `json:"blockDeviceMappings,omitempty"`
-	NetworkInterfaces   []NetworkInterface   `json:"networkInterfaces,omitempty"`
-
-	// todo: use a helper
-	ImageId string `json:"imageId,omitempty"`
-
-	// InstanceType is the type of instance to create. Example: m4.xlarge
-	InstanceType string `json:"instanceType,omitempty"`
-
-	// UncompressedUserData specify whether the user data is gzip-compressed before it is sent to ec2 instance.
-	// cloud-init has built-in support for gzip-compressed user data
-	// user data stored in aws secret manager is always gzip-compressed.
-	//
-	// +optional
-	UncompressedUserData *bool `json:"uncompressedUserData,omitempty"`
-
-	// SSHKeyName is the name of the ssh key to attach to the instance. Valid values are empty string (do not use SSH keys), a valid SSH key name, or omitted (use the default SSH key name)
-	// +optional
-	SSHKeyName *string `json:"sshKeyName,omitempty"`
+	Foo string `json:"foo,omitempty"`
 }
 
 // AWSLaunchTemplateStatus defines the observed state of AWSLaunchTemplate
 type AWSLaunchTemplateStatus struct {
-	LaunchTemplateID bool `json:"launchtemplateid"`
-	Version          bool `json:"version"`
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:path=awslaunchtemplates,scope=Namespaced,categories=cluster-api
 
 // AWSLaunchTemplate is the Schema for the awslaunchtemplates API
 type AWSLaunchTemplate struct {
