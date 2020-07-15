@@ -20,31 +20,77 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// EBS from describe-launch-templates
+type EBS struct {
+	Encrypted  string `json:"encrypted,omitempty"`
+	VolumeSize string `json:"volumeSize,omitempty"`
+	VolumeType string `json:"volumeType,omitempty"`
+}
+
+// BlockDeviceMappings from describe-launch-templates
+type BlockDeviceMapping struct {
+	DeviceName string `json:"deviceName,omitempty"`
+	Ebs        EBS    `json:"ebs,omitempty"`
+}
+
+// NetworkInterface from describe-launch-templates
+type NetworkInterface struct {
+	DeviceIndex string   `json:"deviceIndex,omitempty"`
+	Groups      []string `json:"groups,omitempty"`
+}
+
+// AwsLaunchTemplate defines the desired state of AWSLaunchTemplate
+type AwsLaunchTemplate struct {
+	// all the things needed for a launch template
+
+	IamInstanceProfile  string               `json:"iamInstanceProfile,omitempty"`
+	BlockDeviceMappings []BlockDeviceMapping `json:"blockDeviceMappings,omitempty"`
+	NetworkInterfaces   []NetworkInterface   `json:"networkInterfaces,omitempty"`
+
+	// todo: use a helper
+	ImageId string `json:"imageId,omitempty"`
+
+	// InstanceType is the type of instance to create. Example: m4.xlarge
+	InstanceType string `json:"instanceType,omitempty"`
+
+	// SSHKeyName is the name of the ssh key to attach to the instance. Valid values are empty string (do not use SSH keys), a valid SSH key name, or omitted (use the default SSH key name)
+	// +optional
+	SSHKeyName *string `json:"sshKeyName,omitempty"`
+}
+
+// LaunchTemplateSpecification from describe-auto-scaling-groups
 type LaunchTemplateSpecification struct {
 	LaunchTemplateID   string `json:"launchTemplateId,omitempty"`
 	LaunchTemplateName string `json:"launchTemplateName,omitempty"`
 	Version            string `json:"version,omitempty"`
 }
+
+// LaunchTemplate from describe-auto-scaling-groups
 type LaunchTemplate struct {
 	LaunchTemplateSpecification LaunchTemplateSpecification `json:"launchTemplateSpecification,omitempty"`
 	Overrides                   []Overrides                 `json:"overrides,omitempty"`
 }
 
+// Overrides from describe-auto-scaling-groups
 type Overrides struct {
 	InstanceType string `json:"InstanceType"`
 }
 
+// InstancesDistribution from describe-auto-scaling-groups
 type InstancesDistribution struct {
 	OnDemandAllocationStrategy          string `json:"onDemandAllocationStrategy,omitempty"`
 	OnDemandBaseCapacity                int    `json:"onDemandBaseCapacity,omitempty"`
 	OnDemandPercentageAboveBaseCapacity int    `json:"onDemandPercentageAboveBaseCapacity,omitempty"`
 	SpotAllocationStrategy              string `json:"spotAllocationStrategy,omitempty"`
 }
+
+// MixedInstancesPolicy from describe-auto-scaling-groups
 type MixedInstancesPolicy struct {
 	LaunchTemplate        LaunchTemplate        `json:"launchTemplate,omitempty"`
 	InstancesDistribution InstancesDistribution `json:"instancesDistribution,omitempty"`
 }
 
+// Tags from describe-auto-scaling-groups
 type Tags struct {
 	ResourceID        string `json:"resourceId,omitempty"`
 	ResourceType      string `json:"resourceType,omitempty"`
@@ -69,6 +115,7 @@ type AWSMachinePoolSpec struct {
 	TerminationPolicies              []string             `json:"terminationPolicies,omitempty"`
 	NewInstancesProtectedFromScaleIn bool                 `json:"newInstancesProtectedFromScaleIn,omitempty"`
 	ServiceLinkedRoleARN             string               `json:"serviceLinkedRoleARN,omitempty"`
+	AwsLaunchTemplate                AwsLaunchTemplate    `json:"awsLaunchTemplate,omitempty"`
 }
 
 // AWSMachinePoolStatus defines the observed state of AWSMachinePool
@@ -77,6 +124,7 @@ type AWSMachinePoolStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:path=awsmachinepools,scope=Namespaced,categories=cluster-api
 
 // AWSMachinePool is the Schema for the awsmachinepools API
 type AWSMachinePool struct {
