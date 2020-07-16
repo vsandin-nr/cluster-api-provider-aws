@@ -18,6 +18,7 @@ package ec2
 
 import (
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
+	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
 
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud"
@@ -56,6 +57,9 @@ type Scope interface {
 type Service struct {
 	scope     Scope
 	EC2Client ec2iface.EC2API
+
+	// SSMClient is used to look up the official EKS AMI ID
+	SSMClient ssmiface.SSMAPI
 }
 
 // NewService returns a new service given the ec2 api client.
@@ -63,5 +67,6 @@ func NewService(clusterScope Scope) *Service {
 	return &Service{
 		scope:     clusterScope,
 		EC2Client: scope.NewEC2Client(clusterScope, clusterScope, clusterScope.InfraCluster()),
+		SSMClient: scope.NewSSMClient(clusterScope, clusterScope, clusterScope.InfraCluster()),
 	}
 }

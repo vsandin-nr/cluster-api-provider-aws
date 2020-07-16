@@ -218,15 +218,13 @@ func (s *Service) eksAMILookup(kubernetesVersion string) (string, error) {
 
 	paramName := fmt.Sprintf(eksAmiSSMParameterFormat, formattedVersion)
 
-	// create GetParameter input
 	input := &ssm.GetParameterInput{
 		Name: aws.String(paramName),
 	}
 
-	// call GetParameter
-	out, err := s.scope.SSM.GetParameter(input)
+	out, err := s.SSMClient.GetParameter(input)
 	if err != nil {
-		record.Eventf(s.scope.AWSCluster, "FailedGetParameter", "Failed to get ami SSM parameter %q: %v", paramName, err)
+		record.Eventf(s.scope.InfraCluster(), "FailedGetParameter", "Failed to get ami SSM parameter %q: %v", paramName, err)
 		return "", errors.Wrapf(err, "failed to get ami SSM parameter: %q", paramName)
 	}
 
@@ -234,7 +232,6 @@ func (s *Service) eksAMILookup(kubernetesVersion string) (string, error) {
 		return "", errors.Errorf("SSM parameter returned with nil value: %q", paramName)
 	}
 
-	// return value
 	return aws.StringValue(out.Parameter.Value), nil
 }
 

@@ -27,6 +27,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
+	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
 
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -74,6 +76,16 @@ func NewSecretsManagerClient(scopeUser cloud.ScopeUsage, session cloud.Session, 
 	secretsClient.Handlers.Complete.PushBack(recordAWSPermissionsIssue(target))
 
 	return secretsClient
+}
+
+// NewSSMClient creates a new Secrets API client for a given session
+func NewSSMClient(scopeUser cloud.ScopeUsage, session cloud.Session, target runtime.Object) ssmiface.SSMAPI {
+	ssmClient := ssm.New(session.Session())
+	ssmClient.Handlers.Build.PushFrontNamed(getUserAgentHandler())
+	ssmClient.Handlers.CompleteAttempt.PushFront(awsmetrics.CaptureRequestMetrics(scopeUser.ControllerName()))
+	ssmClient.Handlers.Complete.PushBack(recordAWSPermissionsIssue(target))
+
+	return ssmClient
 }
 
 func recordAWSPermissionsIssue(target runtime.Object) func(r *request.Request) {
