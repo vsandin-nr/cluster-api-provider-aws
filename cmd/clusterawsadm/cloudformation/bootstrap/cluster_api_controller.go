@@ -147,6 +147,15 @@ func (t Template) controllersPolicy() *iamv1.PolicyDocument {
 					"secretsmanager:TagResource",
 				},
 			},
+			{
+				Effect: iamv1.EffectAllow,
+				Resource: iamv1.Resources{
+					"arn:aws:ssm:*:*:parameter/aws/service/eks/optimized-ami/*",
+				},
+				Action: iamv1.Actions{
+					"ssm:GetParameter",
+				},
+			},
 		},
 	}
 	return policyDocument
