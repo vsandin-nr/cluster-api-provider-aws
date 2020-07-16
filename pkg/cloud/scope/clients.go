@@ -19,6 +19,7 @@ package scope
 import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/elb"
@@ -92,4 +93,13 @@ func getUserAgentHandler() request.NamedHandler {
 		Name: "capa/user-agent",
 		Fn:   request.MakeAddToUserAgentHandler("aws.cluster.x-k8s.io", version.Get().String()),
 	}
+}
+
+// AWSClients contains all the aws clients used by the scopes.
+type AWSClients struct {
+	ASG             autoscalingiface.AutoScalingAPI
+	EC2             ec2iface.EC2API
+	ELB             elbiface.ELBAPI
+	SecretsManager  secretsmanageriface.SecretsManagerAPI
+	ResourceTagging resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
 }
