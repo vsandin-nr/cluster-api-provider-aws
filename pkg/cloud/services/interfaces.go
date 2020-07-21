@@ -18,8 +18,17 @@ package services
 
 import (
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
+	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/scope"
 )
+
+// ASGMachineInterface encapsulates the methods exposed to the machinepool
+// actuator
+type ASGMachineInterface interface {
+	AsgIfExists(id *string) (*infrav1.AutoScalingGroup, error)
+	GetRunningAsgByName(scope *scope.MachinePoolScope) (*infrav1.AutoScalingGroup, error)
+	CreateASG(scope *scope.MachinePoolScope) (*infrav1.AutoScalingGroup, error)
+}
 
 // EC2MachineInterface encapsulates the methods exposed to the machine
 // actuator
@@ -36,6 +45,9 @@ type EC2MachineInterface interface {
 
 	TerminateInstanceAndWait(instanceID string) error
 	DetachSecurityGroupsFromNetworkInterface(groups []string, interfaceID string) error
+
+	GetLaunchTemplate(name string) (*expinfrav1.AwsLaunchTemplate, error)
+	CreateLaunchTemplate(scope *scope.MachinePoolScope) (*expinfrav1.AwsLaunchTemplate, error)
 }
 
 // SecretsManagerInterface encapsulated the methods exposed to the
