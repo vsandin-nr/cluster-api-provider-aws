@@ -77,23 +77,21 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, err
-	}
 
-	// Create the cluster scope
-	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
-		Client:  r.Client,
-		Logger:  logger,
-		Cluster: &clusterv1.Cluster{},
-		AWSCluster: &infrav1.AWSCluster{
-			Spec: infrav1.AWSClusterSpec{
-				Region: "us-east-1",
+		// Create the cluster scope
+		clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
+			Client:  r.Client,
+			Logger:  logger,
+			Cluster: &clusterv1.Cluster{},
+			AWSCluster: &infrav1.AWSCluster{
+				Spec: infrav1.AWSClusterSpec{
+					Region: "us-east-1",
+				},
 			},
-		},
-	})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+		})
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 
 	machinePoolScope, err := scope.NewMachinePoolScope(scope.MachinePoolScopeParams{
 		Logger: logger,
