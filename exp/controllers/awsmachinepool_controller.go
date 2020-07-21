@@ -93,14 +93,26 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 			return ctrl.Result{}, err
 		}
 
-	machinePoolScope, err := scope.NewMachinePoolScope(scope.MachinePoolScopeParams{
-		Logger: logger,
-		Client: r.Client,
-		// Cluster:    cluster,
-		// Machine:    machine,
-		// AWSCluster: awsCluster,
-		// AWSMachine: awsMachinePool,
-	})
+		// Create the machine poolscope
+		machinePoolScope, err := scope.NewMachinePoolScope(scope.MachinePoolScopeParams{
+			Logger:      logger,
+			Client:      r.Client,
+			Cluster:     &clusterv1.Cluster{},
+			MachinePool: &expinfrav1.MachinePool{},
+			AWSCluster: &infrav1.AWSCluster{
+				Spec: infrav1.AWSClusterSpec{
+					Region: "us-east-1",
+				},
+			},
+			AWSMachinePool: awsMachinePool,
+		})
+		if err != nil {
+			return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
+		}
+
+		asgsvc := r.getASGService(clusterScope)
+		r.createPool(machinePoolScope, clusterScope, asgsvc)
+		return ctrl.Result{}, nil
 
 	ec2svc := ec2.NewService(clusterScope)
 	_, err = ec2svc.GetLaunchTemplate()
