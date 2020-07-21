@@ -21,7 +21,13 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/klog/klogr"
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
+<<<<<<< HEAD
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
+=======
+	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	expclusterv1 "sigs.k8s.io/cluster-api/exp/api/v1alpha3"
+>>>>>>> fix: merge conflicts resolved
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
