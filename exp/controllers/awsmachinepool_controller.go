@@ -49,8 +49,10 @@ type AWSMachinePoolReconciler struct {
 
 func (r *AWSMachinePoolReconciler) getASGService(scope *scope.ClusterScope) services.ASGMachineInterface {
 	if r.asgServiceFactory != nil {
+		r.Log.Info("--------TESTING-52------------")
 		return r.asgServiceFactory(scope)
 	}
+	r.Log.Info("--------TESTING-55------------")
 	return asg.NewService(scope)
 }
 
@@ -152,7 +154,10 @@ func (r *AWSMachinePoolReconciler) updatePool(machinePoolScope *scope.MachinePoo
 	return ctrl.Result{}, nil
 }
 
-func (r *AWSMachinePoolReconciler) createPool(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope, asgsvc services.ASGMachineInterface) (*infrav1.AutoScalingGroup, error) {
+func (r *AWSMachinePoolReconciler) createPool(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) (*infrav1.AutoScalingGroup, error) {
+	clusterScope.Info("Initializing ASG client")
+	// asgsvc := r.getASGService(clusterScope)
+	asgsvc := asg.NewService(clusterScope)
 	clusterScope.Info("Creating Autoscaling Group")
 	asg, err := asgsvc.CreateASG(machinePoolScope)
 	if err != nil {
