@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	expclusterv1 "sigs.k8s.io/cluster-api/exp/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -101,28 +102,29 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		Logger:      logger,
 		Client:      r.Client,
 		Cluster:     &clusterv1.Cluster{},
-		MachinePool: &expinfrav1.MachinePool{},
+		MachinePool: &expclusterv1.MachinePool{},
 		AWSCluster: &infrav1.AWSCluster{
 			Spec: infrav1.AWSClusterSpec{
 				Region: "us-east-1",
 			},
-			AWSMachinePool: awsMachinePool,
-		})
-		if err != nil {
-			return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
-		}
-
-		asgsvc := r.getASGService(clusterScope)
-		r.createPool(machinePoolScope, clusterScope, asgsvc)
-		return ctrl.Result{}, nil
-
-	ec2svc := ec2.NewService(clusterScope)
-	_, err = ec2svc.GetLaunchTemplate()
+		},
+		AWSMachinePool: awsMachinePool,
+	})
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
 	}
 
-	return r.reconcileNormal(ctx, machinePoolScope, clusterScope)
+	r.createPool(machinePoolScope, clusterScope)
+	return ctrl.Result{}, nil
+
+	// From our first mob. this should be moved to createPool
+	// ec2svc := ec2.NewService(clusterScope)
+	// _, err = ec2svc.GetLaunchTemplate()
+	// if err != nil {
+	// 	return ctrl.Result{}, err
+	// }
+
+	// return r.reconcileNormal(ctx, machinePoolScope, clusterScope)
 }
 
 func (r *AWSMachinePoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -143,7 +145,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 	// Create new ASG
 
 	// Make sure Spec.ProviderID is always set.
-	machinePoolScope.SetProviderID(instance.ID, instance.AvailabilityZone)
+	// machinePoolScope.SetProviderID(instance.ID, instance.AvailabilityZone)
 
 	// Get state of ASG
 	// Set state
@@ -165,8 +167,8 @@ func (r *AWSMachinePoolReconciler) updatePool(machinePoolScope *scope.MachinePoo
 
 func (r *AWSMachinePoolReconciler) createPool(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) (*infrav1.AutoScalingGroup, error) {
 	clusterScope.Info("Initializing ASG client")
-	// asgsvc := r.getASGService(clusterScope)
-	asgsvc := asg.NewService(clusterScope)
+
+	asgsvc := r.getASGService(clusterScope)
 	clusterScope.Info("Creating Autoscaling Group")
 	asg, err := asgsvc.CreateASG(machinePoolScope)
 	if err != nil {
