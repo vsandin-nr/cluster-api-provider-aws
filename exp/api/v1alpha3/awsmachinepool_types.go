@@ -18,88 +18,8 @@ package v1alpha3
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 )
-
-// EBS from describe-launch-templates
-type EBS struct {
-	Encrypted  bool   `json:"encrypted,omitempty"`
-	VolumeSize int64  `json:"volumeSize,omitempty"`
-	VolumeType string `json:"volumeType,omitempty"`
-}
-
-// BlockDeviceMappings from describe-launch-templates
-type BlockDeviceMapping struct {
-	DeviceName string `json:"deviceName,omitempty"`
-	Ebs        EBS    `json:"ebs,omitempty"`
-}
-
-// NetworkInterface from describe-launch-templates
-type NetworkInterface struct {
-	DeviceIndex int64    `json:"deviceIndex,omitempty"`
-	Groups      []string `json:"groups,omitempty"`
-}
-
-// AwsLaunchTemplate defines the desired state of AWSLaunchTemplate
-type AwsLaunchTemplate struct {
-	// all the things needed for a launch template
-
-	IamInstanceProfile  string               `json:"iamInstanceProfile,omitempty"`
-	BlockDeviceMappings []BlockDeviceMapping `json:"blockDeviceMappings,omitempty"`
-	NetworkInterfaces   []NetworkInterface   `json:"networkInterfaces,omitempty"`
-
-	// todo: use a helper
-	ImageId string `json:"imageId,omitempty"`
-
-	// InstanceType is the type of instance to create. Example: m4.xlarge
-	InstanceType string `json:"instanceType,omitempty"`
-
-	// SSHKeyName is the name of the ssh key to attach to the instance. Valid values are empty string (do not use SSH keys), a valid SSH key name, or omitted (use the default SSH key name)
-	// +optional
-	SSHKeyName *string `json:"sshKeyName,omitempty"`
-
-	VersionNumber *int64 `json:"versionNumber,omitempty"`
-}
-
-// LaunchTemplateSpecification from describe-auto-scaling-groups
-type LaunchTemplateSpecification struct {
-	LaunchTemplateID   string `json:"launchTemplateId,omitempty"`
-	LaunchTemplateName string `json:"launchTemplateName,omitempty"`
-	Version            string `json:"version,omitempty"`
-}
-
-// LaunchTemplate from describe-auto-scaling-groups
-type LaunchTemplate struct {
-	LaunchTemplateSpecification LaunchTemplateSpecification `json:"launchTemplateSpecification,omitempty"`
-	Overrides                   []Overrides                 `json:"overrides,omitempty"`
-}
-
-// Overrides from describe-auto-scaling-groups
-type Overrides struct {
-	InstanceType string `json:"InstanceType"`
-}
-
-// InstancesDistribution from describe-auto-scaling-groups
-type InstancesDistribution struct {
-	OnDemandAllocationStrategy          string `json:"onDemandAllocationStrategy,omitempty"`
-	OnDemandBaseCapacity                int    `json:"onDemandBaseCapacity,omitempty"`
-	OnDemandPercentageAboveBaseCapacity int    `json:"onDemandPercentageAboveBaseCapacity,omitempty"`
-	SpotAllocationStrategy              string `json:"spotAllocationStrategy,omitempty"`
-}
-
-// MixedInstancesPolicy from describe-auto-scaling-groups
-type MixedInstancesPolicy struct {
-	LaunchTemplate        LaunchTemplate        `json:"launchTemplate,omitempty"`
-	InstancesDistribution InstancesDistribution `json:"instancesDistribution,omitempty"`
-}
-
-// Tags from describe-auto-scaling-groups
-type Tags struct {
-	ResourceID        string `json:"resourceId,omitempty"`
-	ResourceType      string `json:"resourceType,omitempty"`
-	Key               string `json:"key,omitempty"`
-	Value             string `json:"value,omitempty"`
-	PropagateAtLaunch bool   `json:"propagateAtLaunch,omitempty"`
-}
 
 // AWSMachinePoolSpec defines the desired state of AWSMachinePool
 type AWSMachinePoolSpec struct {
@@ -119,6 +39,12 @@ type AWSMachinePoolSpec struct {
 	NewInstancesProtectedFromScaleIn bool                 `json:"newInstancesProtectedFromScaleIn,omitempty"`
 	ServiceLinkedRoleARN             string               `json:"serviceLinkedRoleARN,omitempty"`
 	AwsLaunchTemplate                AwsLaunchTemplate    `json:"awsLaunchTemplate,omitempty"`
+
+	// AdditionalSecurityGroups is an array of references to security groups that should be applied to the
+	// instance. These security groups would be set in addition to any security groups defined
+	// at the cluster level or in the actuator.
+	// +optional
+	AdditionalSecurityGroups []infrav1.AWSResourceReference `json:"additionalSecurityGroups,omitempty"`
 }
 
 // AWSMachinePoolStatus defines the observed state of AWSMachinePool

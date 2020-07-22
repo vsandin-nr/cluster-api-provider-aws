@@ -20,7 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/pkg/errors"
-	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
+	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/awserrors"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/scope"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/record"
@@ -28,8 +28,8 @@ import (
 
 // SDKToAutoScalingGroup converts an AWS EC2 SDK AugoScalingGroup to the CAPA AugoScalingGroup type.
 // SDKToAugoScalingGroup populates all AugoScalingGroup fields
-func (s *Service) SDKToAutoScalingGroup(v *autoscaling.Group) (*infrav1.AutoScalingGroup, error) {
-	i := &infrav1.AutoScalingGroup{
+func (s *Service) SDKToAutoScalingGroup(v *autoscaling.Group) (*expinfrav1.AutoScalingGroup, error) {
+	i := &expinfrav1.AutoScalingGroup{
 		ID: aws.StringValue(v.AutoScalingGroupName),
 		//TODO: determine what additional values go here and what else should be in the struct
 	}
@@ -38,8 +38,8 @@ func (s *Service) SDKToAutoScalingGroup(v *autoscaling.Group) (*infrav1.AutoScal
 }
 
 //TODO: SDKToAutoScalingGroupInstance probably needs to be done as well
-// func (s *Service) SDKToAutoScalingGroupInstance(v *autoscaling.Instance) (*infrav1.AutoScalingGroup, error) {
-// 	i := &infrav1.AutoScalingGroupInstance
+// func (s *Service) SDKToAutoScalingGroupInstance(v *autoscaling.Instance) (*expinfrav1.AutoScalingGroup, error) {
+// 	i := &expinfrav1.AutoScalingGroupInstance
 // 		ID: aws.StringValue(v.AutoScalingGroupName),
 // 	}
 // 	// Will likely be similar to SDKToInstance
@@ -48,7 +48,7 @@ func (s *Service) SDKToAutoScalingGroup(v *autoscaling.Group) (*infrav1.AutoScal
 // }
 
 // AsgIfExists returns the existing autoscaling group or nothing if it doesn't exist.
-func (s *Service) AsgIfExists(name *string) (*infrav1.AutoScalingGroup, error) {
+func (s *Service) AsgIfExists(name *string) (*expinfrav1.AutoScalingGroup, error) {
 	if name == nil {
 		s.scope.Info("Autoscaling Group does not have a name")
 		return nil, nil
@@ -74,7 +74,7 @@ func (s *Service) AsgIfExists(name *string) (*infrav1.AutoScalingGroup, error) {
 }
 
 // GetRunningAsgByName returns the existing ASG or nothing if it doesn't exist.
-func (s *Service) GetRunningAsgByName(scope *scope.MachinePoolScope) (*infrav1.AutoScalingGroup, error) {
+func (s *Service) GetRunningAsgByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error) {
 	s.scope.Info("Looking for existing machine instance by tags")
 
 	input := &autoscaling.DescribeAutoScalingGroupsInput{
@@ -96,10 +96,10 @@ func (s *Service) GetRunningAsgByName(scope *scope.MachinePoolScope) (*infrav1.A
 }
 
 // CreateASG runs an autoscaling group.
-func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*infrav1.AutoScalingGroup, error) {
+func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error) {
 	s.scope.Info("Creating an autoscaling group for a machine pool")
 
-	input := &infrav1.AutoScalingGroup{
+	input := &expinfrav1.AutoScalingGroup{
 		AutoScalingGroupName: scope.Name(), //TODO: define dynamically - borrow logic from ec2
 		DesiredCapacity:      1,            //TODO: define elsewhere
 		LaunchTemplateSpecification: &autoscaling.LaunchTemplateSpecification{
@@ -126,7 +126,7 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*infrav1.AutoScaling
 	return nil, nil
 }
 
-func (s *Service) runPool(i *infrav1.AutoScalingGroup) (*infrav1.AutoScalingGroup, error) {
+func (s *Service) runPool(i *expinfrav1.AutoScalingGroup) (*expinfrav1.AutoScalingGroup, error) {
 	input := &autoscaling.CreateAutoScalingGroupInput{
 		AutoScalingGroupName: aws.String(i.AutoScalingGroupName),
 		DesiredCapacity:      aws.Int64(i.DesiredCapacity),
