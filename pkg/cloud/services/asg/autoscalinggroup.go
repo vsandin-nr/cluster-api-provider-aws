@@ -60,12 +60,12 @@ func (s *Service) AsgIfExists(name *string) (*infrav1.AutoScalingGroup, error) {
 		AutoScalingGroupNames: []*string{name},
 	}
 
-	out, err := s.scope.ASG.DescribeAutoScalingGroups(input)
+	out, err := s.ASGClient.DescribeAutoScalingGroups(input)
 	switch {
 	case awserrors.IsNotFound(err):
 		return nil, nil
 	case err != nil:
-		record.Eventf(s.scope.AWSCluster, "FailedDescribeAutoScalingGroups", "failed to describe ASG %q: %v", *name, err)
+		record.Eventf(s.scope.InfraCluster(), "FailedDescribeAutoScalingGroups", "failed to describe ASG %q: %v", *name, err)
 		return nil, errors.Wrapf(err, "failed to describe AutoScaling Group: %q", *name)
 	}
 	//TODO: double check if you're handling nil vals
@@ -83,12 +83,12 @@ func (s *Service) GetRunningAsgByName(scope *scope.MachinePoolScope) (*infrav1.A
 		},
 	}
 
-	out, err := s.scope.ASG.DescribeAutoScalingGroups(input)
+	out, err := s.ASGClient.DescribeAutoScalingGroups(input)
 	switch {
 	case awserrors.IsNotFound(err):
 		return nil, nil
 	case err != nil:
-		record.Eventf(s.scope.AWSCluster, "FailedDescribeInstances", "Failed to describe instances by tags: %v", err)
+		record.Eventf(s.scope.InfraCluster(), "FailedDescribeInstances", "Failed to describe instances by tags: %v", err)
 		return nil, errors.Wrap(err, "failed to describe instances by tags")
 	}
 
@@ -138,7 +138,7 @@ func (s *Service) runPool(i *infrav1.AutoScalingGroup) (*infrav1.AutoScalingGrou
 
 	s.scope.Info("Creating AutoScalingGroup")
 
-	out, err := s.scope.ASG.CreateAutoScalingGroup(input)
+	out, err := s.ASGClient.CreateAutoScalingGroup(input)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create autoscaling group")
 	}
