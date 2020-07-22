@@ -17,19 +17,28 @@ limitations under the License.
 package asg
 
 import (
+	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
+
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/scope"
 )
+
+type Scope interface {
+	cloud.ClusterScoper
+}
 
 // Service holds a collection of interfaces.
 // The interfaces are broken down like this to group functions together.
 // One alternative is to have a large list of functions from the asg client.
 type Service struct {
-	scope *scope.ClusterScope
+	scope     Scope
+	ASGClient autoscalingiface.AutoScalingAPI
 }
 
 // NewService returns a new service given the asg api client.
-func NewService(scope *scope.ClusterScope) *Service {
+func NewService(clusterScope Scope) *Service {
 	return &Service{
-		scope: scope,
+		scope:     clusterScope,
+		ASGClient: scope.NewASGClient(clusterScope, clusterScope, clusterScope.InfraCluster()),
 	}
 }

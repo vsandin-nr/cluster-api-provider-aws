@@ -35,7 +35,7 @@ func (s *Service) GetLaunchTemplate(name string) (*infrav1.AwsLaunchTemplate, er
 		LaunchTemplateName: aws.String(name),
 	}
 
-	out, err := s.scope.EC2.DescribeLaunchTemplateVersions(input)
+	out, err := s.EC2Client.DescribeLaunchTemplateVersions(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -70,7 +70,7 @@ func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope) (*infrav1.
 		LaunchTemplateName: aws.String(scope.Name()),
 	}
 
-	result, err := s.scope.EC2.CreateLaunchTemplate(input)
+	result, err := s.EC2Client.CreateLaunchTemplate(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
