@@ -23,8 +23,9 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	expclusterv1 "sigs.k8s.io/cluster-api/exp/api/v1alpha3"
@@ -44,7 +45,7 @@ import (
 type AWSMachinePoolReconciler struct {
 	client.Client
 	Log               logr.Logger
-	Scheme            *runtime.Scheme
+	Recorder          record.EventRecorder
 	asgServiceFactory func(*scope.ClusterScope) services.ASGMachineInterface
 	ec2ServiceFactory func(*scope.ClusterScope) services.EC2MachineInterface
 }
@@ -114,8 +115,7 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
 	}
 
-	r.createPool(machinePoolScope, clusterScope)
-	return ctrl.Result{}, nil
+	// return ctrl.Result{}, nil
 
 	// From our first mob. this should be moved to createPool
 	// ec2svc := ec2.NewService(clusterScope)
@@ -124,7 +124,7 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	// 	return ctrl.Result{}, err
 	// }
 
-	// return r.reconcileNormal(ctx, machinePoolScope, clusterScope)
+	return r.reconcileNormal(ctx, machinePoolScope, clusterScope)
 }
 
 func (r *AWSMachinePoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -138,11 +138,40 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 	// If the AWSMachinepool doesn't have our finalizer, add it
 	controllerutil.AddFinalizer(machinePoolScope.AWSMachinePool, infrav1.MachineFinalizer)
 	// Make sure bootstrap data is available and populated
+	if machinePoolScope.MachinePool.Spec.Template.Spec.Bootstrap.DataSecretName == nil {
+		machinePoolScope.Info("Bootstrap data secret reference is not yet available")
+		// conditions.MarkFalse(machinePoolScope.AWSMachinePool, infrav1.InstanceReadyCondition, infrav1.WaitingForBootstrapDataReason, clusterv1.ConditionSeverityInfo, "") //TODO: GetCondition()
+		return ctrl.Result{}, nil
+	}
 
-	// Find existing Instance
-	r.getASGService(clusterScope)
+	// Initialize ASG client
+	asgsvc := r.getASGService(clusterScope)
 
-	// Create new ASG
+	// Find existing ASG
+	asg, err := r.findASG(machinePoolScope, asgsvc)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if asg == nil {
+		// The ASG was never created or was deleted by some other entity
+		// One way to reach this state:
+		// 1. Scale deployment to 0
+		// 2. Rename ASG and delete ProviderID from spec of both MachinePool
+		// and AWSMachinePool
+		// 3. Issue a delete
+		// 4. Scale controller deployment to 1
+		machinePoolScope.Info("Unable to locate ASG by name")
+		r.Recorder.Eventf(machinePoolScope.AWSMachinePool, corev1.EventTypeWarning, "NoInstanceFound", "Unable to find matching EC2 instance")
+		controllerutil.RemoveFinalizer(machinePoolScope.AWSMachinePool, infrav1.MachineFinalizer)
+
+		// Create new ASG
+		asg, err = r.createPool(machinePoolScope, clusterScope)
+		if err != nil {
+			//TODO: ADd conditions
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
 
 	// Make sure Spec.ProviderID is always set.
 	// machinePoolScope.SetProviderID(instance.ID, instance.AvailabilityZone)
@@ -177,12 +206,8 @@ func (r *AWSMachinePoolReconciler) createPool(machinePoolScope *scope.MachinePoo
 	return asg, nil
 }
 
-func (r *AWSMachinePoolReconciler) findASG(machinePoolScope *scope.MachinePoolScope, asgsvc services.ASGMachineInterface, clusterScope *scope.ClusterScope) (*infrav1.AutoScalingGroup, error) {
-	clusterScope.Info("Finding ASG")
-	// if instance is nil
-	//   createPool() (both launch template and ASG)
-	// else
-	//   updatePool()
+func (r *AWSMachinePoolReconciler) findASG(machinePoolScope *scope.MachinePoolScope, asgsvc services.ASGMachineInterface) (*infrav1.AutoScalingGroup, error) {
+	machinePoolScope.Info("Finding ASG")
 
 	// Parse the ProviderID
 	pid, err := noderefutil.NewProviderID(machinePoolScope.GetProviderID())

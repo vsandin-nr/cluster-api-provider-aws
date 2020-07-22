@@ -100,11 +100,11 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*infrav1.AutoScaling
 	s.scope.Info("Creating an autoscaling group for a machine pool")
 
 	input := &infrav1.AutoScalingGroup{
-		AutoScalingGroupName: "nicole-testy-westy", //TODO: define dynamically - borrow logic from ec2
-		DesiredCapacity:      1,                    //TODO: define elsewhere
+		AutoScalingGroupName: scope.Name(), //TODO: define dynamically - borrow logic from ec2
+		DesiredCapacity:      1,            //TODO: define elsewhere
 		LaunchTemplateSpecification: &autoscaling.LaunchTemplateSpecification{
-			LaunchTemplateName: aws.String("mytu-test"),
-		}, //TODO: get from mytu's code, remove hard code val, get machinepool.go
+			LaunchTemplateName: aws.String(scope.Name()),
+		},
 		MaxSize: 5, //TODO: Define for realsies later
 		MinSize: 1,
 	}

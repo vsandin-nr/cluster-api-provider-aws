@@ -200,19 +200,11 @@ func main() {
 			os.Exit(1)
 		}
 		if err = (&expcontrollers.AWSMachinePoolReconciler{
-			Client: mgr.GetClient(),
-			Log:    ctrl.Log.WithName("controllers").WithName("AWSMachinePool"),
-			Scheme: mgr.GetScheme(),
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("AWSMachinePool"),
+			Recorder: mgr.GetEventRecorderFor("awsmachinepool-controller"),
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AWSMachinePool")
-			os.Exit(1)
-		}
-		if err = (&expcontrollers.AWSLaunchTemplateReconciler{
-			Client: mgr.GetClient(),
-			Log:    ctrl.Log.WithName("controllers").WithName("AWSLaunchTemplate"),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "AWSLaunchTemplate")
 			os.Exit(1)
 		}
 	} else {
