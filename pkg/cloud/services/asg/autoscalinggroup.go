@@ -102,11 +102,8 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 	input := &expinfrav1.AutoScalingGroup{
 		AutoScalingGroupName: scope.Name(), //TODO: define dynamically - borrow logic from ec2
 		DesiredCapacity:      1,            //TODO: define elsewhere
-		LaunchTemplateSpecification: &autoscaling.LaunchTemplateSpecification{
-			LaunchTemplateName: aws.String(scope.Name()),
-		},
-		MaxSize: 5, //TODO: Define for realsies later
-		MinSize: 1,
+		MaxSize:              5,            //TODO: Define for realsies later
+		MinSize:              1,
 	}
 
 	// TODO: do additional tags
@@ -130,10 +127,12 @@ func (s *Service) runPool(i *expinfrav1.AutoScalingGroup) (*expinfrav1.AutoScali
 	input := &autoscaling.CreateAutoScalingGroupInput{
 		AutoScalingGroupName: aws.String(i.AutoScalingGroupName),
 		DesiredCapacity:      aws.Int64(i.DesiredCapacity),
-		LaunchTemplate:       i.LaunchTemplateSpecification,
-		MaxSize:              aws.Int64(i.MaxSize),
-		MinSize:              aws.Int64(i.MinSize),
-		VPCZoneIdentifier:    aws.String("subnet-001ce8521fc0ff8ee"),
+		LaunchTemplate: &autoscaling.LaunchTemplateSpecification{
+			LaunchTemplateName: aws.String(s.scope.Name()),
+		},
+		MaxSize:           aws.Int64(i.MaxSize),
+		MinSize:           aws.Int64(i.MinSize),
+		VPCZoneIdentifier: aws.String("subnet-001ce8521fc0ff8ee"),
 	}
 
 	s.scope.Info("Creating AutoScalingGroup")

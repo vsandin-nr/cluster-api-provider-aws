@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha3
 
 import (
-	"github.com/aws/aws-sdk-go/service/autoscaling"
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 )
 
@@ -106,12 +105,12 @@ type Tags struct {
 type AutoScalingGroup struct {
 	ID string `json:"id"`
 	// The tags associated with the instance.
-	Tags                        map[string]string `json:"tags,omitempty"`
-	AutoScalingGroupName        string
-	DesiredCapacity             int64
-	LaunchTemplateSpecification *autoscaling.LaunchTemplateSpecification
-	MaxSize                     int64
-	MinSize                     int64
-	MixedInstancesPolicy        *autoscaling.MixedInstancesPolicy
-	PlacementGroup              string
+	Tags                 map[string]string `json:"tags,omitempty"`
+	AutoScalingGroupName string
+	DesiredCapacity      int64
+	// LaunchTemplateSpecification *autoscaling.LaunchTemplateSpecification
+	MaxSize int64
+	MinSize int64
+	// MixedInstancesPolicy        *autoscaling.MixedInstancesPolicy
+	PlacementGroup string
 }
