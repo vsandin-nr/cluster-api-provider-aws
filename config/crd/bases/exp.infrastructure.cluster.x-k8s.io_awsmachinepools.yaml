@@ -24,20 +24,47 @@ spec:
         description: AWSMachinePool is the Schema for the awsmachinepools API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
           spec:
             description: AWSMachinePoolSpec defines the desired state of AWSMachinePool
             properties:
+              additionalSecurityGroups:
+                description: AdditionalSecurityGroups is an array of references to security groups that should be applied to the instance. These security groups would be set in addition to any security groups defined at the cluster level or in the actuator.
+                items:
+                  description: AWSResourceReference is a reference to a specific AWS resource by ID, ARN, or filters. Only one of ID, ARN or Filters may be specified. Specifying more than one will result in a validation error.
+                  properties:
+                    arn:
+                      description: ARN of resource
+                      type: string
+                    filters:
+                      description: 'Filters is a set of key/value pairs used to identify a resource They are applied according to the rules defined by the AWS API: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Filtering.html'
+                      items:
+                        description: Filter is a filter used to identify an AWS resource
+                        properties:
+                          name:
+                            description: Name of the filter. Filter names are case-sensitive.
+                            type: string
+                          values:
+                            description: Values includes one or more filter values. Filter values are case-sensitive.
+                            items:
+                              type: string
+                            type: array
+                        required:
+                        - name
+                        - values
+                        type: object
+                      type: array
+                    id:
+                      description: ID of resource
+                      type: string
+                  type: object
+                type: array
               autoScalingGroupName:
                 type: string
               availabilityZones:
@@ -70,10 +97,34 @@ spec:
                     type: string
                   imageId:
                     description: 'todo: use a helper'
-                    type: string
+                    properties:
+                      arn:
+                        description: ARN of resource
+                        type: string
+                      filters:
+                        description: 'Filters is a set of key/value pairs used to identify a resource They are applied according to the rules defined by the AWS API: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Filtering.html'
+                        items:
+                          description: Filter is a filter used to identify an AWS resource
+                          properties:
+                            name:
+                              description: Name of the filter. Filter names are case-sensitive.
+                              type: string
+                            values:
+                              description: Values includes one or more filter values. Filter values are case-sensitive.
+                              items:
+                                type: string
+                              type: array
+                          required:
+                          - name
+                          - values
+                          type: object
+                        type: array
+                      id:
+                        description: ID of resource
+                        type: string
+                    type: object
                   instanceType:
-                    description: 'InstanceType is the type of instance to create.
-                      Example: m4.xlarge'
+                    description: 'InstanceType is the type of instance to create. Example: m4.xlarge'
                     type: string
                   networkInterfaces:
                     items:
@@ -89,10 +140,7 @@ spec:
                       type: object
                     type: array
                   sshKeyName:
-                    description: SSHKeyName is the name of the ssh key to attach to
-                      the instance. Valid values are empty string (do not use SSH
-                      keys), a valid SSH key name, or omitted (use the default SSH
-                      key name)
+                    description: SSHKeyName is the name of the ssh key to attach to the instance. Valid values are empty string (do not use SSH keys), a valid SSH key name, or omitted (use the default SSH key name)
                     type: string
                   versionNumber:
                     format: int64
@@ -152,6 +200,8 @@ spec:
                 type: object
               newInstancesProtectedFromScaleIn:
                 type: boolean
+              providerID:
+                type: string
               serviceLinkedRoleARN:
                 type: string
               tags:

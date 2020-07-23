@@ -21,7 +21,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"k8s.io/apimachinery/pkg/util/sets"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 )
@@ -653,18 +652,4 @@ type RootVolume struct {
 	// The key must already exist and be accessible by the controller.
 	// +optional
 	EncryptionKey string `json:"encryptionKey,omitempty"`
-}
-
-// AutoScalingGroup describes an AWS autoscaling group.
-type AutoScalingGroup struct {
-	ID string `json:"id"`
-	// The tags associated with the instance.
-	Tags                        map[string]string `json:"tags,omitempty"`
-	AutoScalingGroupName        string
-	DesiredCapacity             int64
-	LaunchTemplateSpecification *autoscaling.LaunchTemplateSpecification
-	MaxSize                     int64
-	MinSize                     int64
-	MixedInstancesPolicy        *autoscaling.MixedInstancesPolicy
-	PlacementGroup              string
 }
