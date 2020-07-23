@@ -115,11 +115,11 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	}
 	awsCluster := &infrav1.AWSCluster{}
 	if err := r.Client.Get(ctx, awsClusterName, awsCluster); err != nil {
-		logger.Info("AzureCluster is not available yet")
+		logger.Info("InfraCluster is not available yet")
 		return reconcile.Result{}, nil
 	}
 
-	logger = logger.WithValues("AzureCluster", awsCluster.Name)
+	logger = logger.WithValues("InfraCluster", awsCluster.Name)
 
 	// Create the cluster scope
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{

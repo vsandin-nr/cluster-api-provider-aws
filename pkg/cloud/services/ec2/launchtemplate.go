@@ -77,15 +77,27 @@ func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData [
 		LaunchTemplateName: aws.String(scope.Name()),
 	}
 
-	if len(scope.AWSMachinePool.Spec.AdditionalTags) > 0 {
-		spec := &ec2.TagSpecification{ResourceType: aws.String(ec2.ResourceTypeLaunchTemplate)}
-		for key, value := range scope.AWSMachinePool.Spec.AdditionalTags {
+	additionalTags := scope.AdditionalTags()
+	// Set the cloud provider tag
+	additionalTags[infrav1.ClusterAWSCloudProviderTagKey(s.scope.Name())] = string(infrav1.ResourceLifecycleOwned)
+
+	tags := infrav1.Build(infrav1.BuildParams{
+		ClusterName: s.scope.Name(),
+		Lifecycle:   infrav1.ResourceLifecycleOwned,
+		Name:        aws.String(scope.Name()),
+		Role:        aws.String("node"),
+		Additional:  additionalTags,
+	})
+
+	if len(tags) > 0 {
+		spec := &ec2.LaunchTemplateTagSpecificationRequest{ResourceType: aws.String(ec2.ResourceTypeInstance)}
+		for key, value := range tags {
 			spec.Tags = append(spec.Tags, &ec2.Tag{
 				Key:   aws.String(key),
 				Value: aws.String(value),
 			})
 		}
-		input.TagSpecifications = append(input.TagSpecifications, spec)
+		input.LaunchTemplateData.TagSpecifications = append(input.LaunchTemplateData.TagSpecifications, spec)
 	}
 
 	ids, err := s.GetCoreNodeSecurityGroups()

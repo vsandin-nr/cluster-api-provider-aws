@@ -127,3 +127,16 @@ func (m *MachinePoolScope) GetRawBootstrapData() ([]byte, error) {
 
 	return value, nil
 }
+
+// AdditionalTags merges AdditionalTags from the scope's AWSCluster and AWSMachine. If the same key is present in both,
+// the value from AWSMachine takes precedence. The returned Tags will never be nil.
+func (m *MachinePoolScope) AdditionalTags() infrav1.Tags {
+	tags := make(infrav1.Tags)
+
+	// Start with the cluster-wide tags...
+	tags.Merge(m.AWSCluster.Spec.AdditionalTags)
+	// ... and merge in the Machine's
+	tags.Merge(m.AWSMachinePool.Spec.AdditionalTags)
+
+	return tags
+}
