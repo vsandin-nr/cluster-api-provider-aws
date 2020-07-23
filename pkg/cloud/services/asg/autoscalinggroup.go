@@ -17,6 +17,8 @@ limitations under the License.
 package asg
 
 import (
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/pkg/errors"
@@ -73,8 +75,8 @@ func (s *Service) AsgIfExists(name *string) (*expinfrav1.AutoScalingGroup, error
 
 }
 
-// GetRunningAsgByName returns the existing ASG or nothing if it doesn't exist.
-func (s *Service) GetRunningAsgByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error) {
+// GetAsgByName returns the existing ASG or nothing if it doesn't exist.
+func (s *Service) GetAsgByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error) {
 	s.scope.Info("Looking for existing machine instance by tags")
 
 	input := &autoscaling.DescribeAutoScalingGroupsInput{
@@ -90,6 +92,9 @@ func (s *Service) GetRunningAsgByName(scope *scope.MachinePoolScope) (*expinfrav
 	case err != nil:
 		record.Eventf(s.scope.InfraCluster(), "FailedDescribeInstances", "Failed to describe instances by tags: %v", err)
 		return nil, errors.Wrap(err, "failed to describe instances by tags")
+	case len(out.AutoScalingGroups) == 0:
+		record.Eventf(scope.AWSMachinePool, "FailedDescribeInstances", "No Auto Scaling Groups with %s found", scope.Name())
+		return nil, nil
 	}
 
 	return s.SDKToAutoScalingGroup(out.AutoScalingGroups[0])
@@ -104,6 +109,7 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 		DesiredCapacity:      1,            //TODO: define elsewhere
 		MaxSize:              5,            //TODO: Define for realsies later
 		MinSize:              1,
+		VPCZoneIdentifier:    scope.AWSMachinePool.Spec.Subnets,
 	}
 
 	// TODO: do additional tags
@@ -128,11 +134,11 @@ func (s *Service) runPool(i *expinfrav1.AutoScalingGroup) (*expinfrav1.AutoScali
 		AutoScalingGroupName: aws.String(i.AutoScalingGroupName),
 		DesiredCapacity:      aws.Int64(i.DesiredCapacity),
 		LaunchTemplate: &autoscaling.LaunchTemplateSpecification{
-			LaunchTemplateName: aws.String(s.scope.Name()),
+			LaunchTemplateName: aws.String(i.AutoScalingGroupName),
 		},
 		MaxSize:           aws.Int64(i.MaxSize),
 		MinSize:           aws.Int64(i.MinSize),
-		VPCZoneIdentifier: aws.String("subnet-001ce8521fc0ff8ee"),
+		VPCZoneIdentifier: aws.String(strings.Join(i.VPCZoneIdentifier, ", ")),
 	}
 
 	s.scope.Info("Creating AutoScalingGroup")

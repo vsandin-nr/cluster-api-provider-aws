@@ -40,7 +40,7 @@ type NetworkInterface struct {
 }
 
 // AwsLaunchTemplate defines the desired state of AWSLaunchTemplate
-type AwsLaunchTemplate struct {
+type AWSLaunchTemplate struct {
 	// all the things needed for a launch template
 
 	IamInstanceProfile  string               `json:"iamInstanceProfile,omitempty"`
@@ -48,7 +48,7 @@ type AwsLaunchTemplate struct {
 	NetworkInterfaces   []NetworkInterface   `json:"networkInterfaces,omitempty"`
 
 	// todo: use a helper
-	AMI infrav1.AWSResourceReference `json:"imageId,omitempty"`
+	AMI infrav1.AWSResourceReference `json:"ami,omitempty"`
 
 	// InstanceType is the type of instance to create. Example: m4.xlarge
 	InstanceType string `json:"instanceType,omitempty"`
@@ -92,14 +92,8 @@ type MixedInstancesPolicy struct {
 	InstancesDistribution InstancesDistribution `json:"instancesDistribution,omitempty"`
 }
 
-// Tags from describe-auto-scaling-groups
-type Tags struct {
-	ResourceID        string `json:"resourceId,omitempty"`
-	ResourceType      string `json:"resourceType,omitempty"`
-	Key               string `json:"key,omitempty"`
-	Value             string `json:"value,omitempty"`
-	PropagateAtLaunch bool   `json:"propagateAtLaunch,omitempty"`
-}
+// Tags
+type Tags map[string]string
 
 // AutoScalingGroup describes an AWS autoscaling group.
 type AutoScalingGroup struct {
@@ -112,5 +106,6 @@ type AutoScalingGroup struct {
 	MaxSize int64
 	MinSize int64
 	// MixedInstancesPolicy        *autoscaling.MixedInstancesPolicy
-	PlacementGroup string
+	PlacementGroup    string
+	VPCZoneIdentifier []string
 }
