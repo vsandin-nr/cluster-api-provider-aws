@@ -26,7 +26,7 @@ import (
 // actuator
 type ASGMachineInterface interface {
 	AsgIfExists(id *string) (*expinfrav1.AutoScalingGroup, error)
-	GetRunningAsgByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error)
+	GetAsgByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error)
 	CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error)
 }
 

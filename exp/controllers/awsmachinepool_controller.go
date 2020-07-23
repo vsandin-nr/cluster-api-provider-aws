@@ -278,7 +278,7 @@ func (r *AWSMachinePoolReconciler) findASG(machinePoolScope *scope.MachinePoolSc
 	}
 
 	// If the ProviderID is empty, try to query the instance using tags.
-	asg, err := asgsvc.GetRunningAsgByName(machinePoolScope)
+	asg, err := asgsvc.GetAsgByName(machinePoolScope)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to query AWSMachinePool by tags")
 	}

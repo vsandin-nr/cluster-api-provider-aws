@@ -61,15 +61,18 @@ func (s *Service) GetLaunchTemplate(name string) (*expinfrav1.AWSLaunchTemplate,
 
 func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData []byte) (*expinfrav1.AWSLaunchTemplate, error) {
 	s.scope.Info("Create a new launch template")
-
+	s.scope.Info("UserData", "UserData", string(userData))
 	s.scope.Info(scope.Name())
 
 	input := &ec2.CreateLaunchTemplateInput{
 		LaunchTemplateData: &ec2.RequestLaunchTemplateData{
 			ImageId:      scope.AWSMachinePool.Spec.AWSLaunchTemplate.AMI.ID,
 			InstanceType: aws.String(scope.AWSMachinePool.Spec.AWSLaunchTemplate.InstanceType),
-			KeyName:      scope.AWSMachinePool.Spec.AWSLaunchTemplate.SSHKeyName,
-			UserData:     pointer.StringPtr(base64.StdEncoding.EncodeToString(userData)),
+			IamInstanceProfile: &ec2.LaunchTemplateIamInstanceProfileSpecificationRequest{
+				Name: aws.String(scope.AWSMachinePool.Spec.AWSLaunchTemplate.IamInstanceProfile),
+			},
+			KeyName:  scope.AWSMachinePool.Spec.AWSLaunchTemplate.SSHKeyName,
+			UserData: pointer.StringPtr(base64.StdEncoding.EncodeToString(userData)),
 		},
 		LaunchTemplateName: aws.String(scope.Name()),
 	}
@@ -91,6 +94,7 @@ func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData [
 	}
 
 	for _, id := range ids {
+		s.scope.Info(id)
 		input.LaunchTemplateData.SecurityGroupIds = append(input.LaunchTemplateData.SecurityGroupIds, aws.String(id))
 	}
 
@@ -98,6 +102,7 @@ func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData [
 	for _, additionalGroup := range scope.AWSMachinePool.Spec.AdditionalSecurityGroups {
 		input.LaunchTemplateData.SecurityGroupIds = append(input.LaunchTemplateData.SecurityGroupIds, additionalGroup.ID)
 	}
+	s.scope.Info("Security Groups", "security groups", input.LaunchTemplateData.SecurityGroupIds)
 
 	result, err := s.EC2Client.CreateLaunchTemplate(input)
 	if err != nil {

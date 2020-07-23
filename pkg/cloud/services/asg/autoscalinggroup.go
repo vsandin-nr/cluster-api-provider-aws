@@ -75,8 +75,8 @@ func (s *Service) AsgIfExists(name *string) (*expinfrav1.AutoScalingGroup, error
 
 }
 
-// GetRunningAsgByName returns the existing ASG or nothing if it doesn't exist.
-func (s *Service) GetRunningAsgByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error) {
+// GetAsgByName returns the existing ASG or nothing if it doesn't exist.
+func (s *Service) GetAsgByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error) {
 	s.scope.Info("Looking for existing machine instance by tags")
 
 	input := &autoscaling.DescribeAutoScalingGroupsInput{
@@ -92,6 +92,9 @@ func (s *Service) GetRunningAsgByName(scope *scope.MachinePoolScope) (*expinfrav
 	case err != nil:
 		record.Eventf(s.scope.InfraCluster(), "FailedDescribeInstances", "Failed to describe instances by tags: %v", err)
 		return nil, errors.Wrap(err, "failed to describe instances by tags")
+	case len(out.AutoScalingGroups) == 0:
+		record.Eventf(scope.AWSMachinePool, "FailedDescribeInstances", "No Auto Scaling Groups with %s found", scope.Name())
+		return nil, nil
 	}
 
 	return s.SDKToAutoScalingGroup(out.AutoScalingGroups[0])
@@ -131,7 +134,7 @@ func (s *Service) runPool(i *expinfrav1.AutoScalingGroup) (*expinfrav1.AutoScali
 		AutoScalingGroupName: aws.String(i.AutoScalingGroupName),
 		DesiredCapacity:      aws.Int64(i.DesiredCapacity),
 		LaunchTemplate: &autoscaling.LaunchTemplateSpecification{
-			LaunchTemplateName: aws.String(s.scope.Name()),
+			LaunchTemplateName: aws.String(i.AutoScalingGroupName),
 		},
 		MaxSize:           aws.Int64(i.MaxSize),
 		MinSize:           aws.Int64(i.MinSize),
