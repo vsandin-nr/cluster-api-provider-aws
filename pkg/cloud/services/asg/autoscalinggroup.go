@@ -17,6 +17,8 @@ limitations under the License.
 package asg
 
 import (
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/pkg/errors"
@@ -104,6 +106,7 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 		DesiredCapacity:      1,            //TODO: define elsewhere
 		MaxSize:              5,            //TODO: Define for realsies later
 		MinSize:              1,
+		VPCZoneIdentifier:    scope.AWSMachinePool.Spec.Subnets,
 	}
 
 	// TODO: do additional tags
@@ -132,7 +135,7 @@ func (s *Service) runPool(i *expinfrav1.AutoScalingGroup) (*expinfrav1.AutoScali
 		},
 		MaxSize:           aws.Int64(i.MaxSize),
 		MinSize:           aws.Int64(i.MinSize),
-		VPCZoneIdentifier: aws.String("subnet-001ce8521fc0ff8ee"),
+		VPCZoneIdentifier: aws.String(strings.Join(i.VPCZoneIdentifier, ", ")),
 	}
 
 	s.scope.Info("Creating AutoScalingGroup")
