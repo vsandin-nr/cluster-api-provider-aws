@@ -23,8 +23,9 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	expclusterv1 "sigs.k8s.io/cluster-api/exp/api/v1alpha3"
@@ -44,7 +45,7 @@ import (
 type AWSMachinePoolReconciler struct {
 	client.Client
 	Log               logr.Logger
-	Scheme            *runtime.Scheme
+	Recorder          record.EventRecorder
 	asgServiceFactory func(*scope.ClusterScope) services.ASGMachineInterface
 	ec2ServiceFactory func(*scope.ClusterScope) services.EC2MachineInterface
 }
@@ -82,6 +83,9 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return ctrl.Result{}, err
 	}
 
+	// TODO: util.GetOwnerMachinePool?
+	// TODO: util.GetClusterFromMetadata
+
 	// Create the cluster scope
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
 		Client:  r.Client,
@@ -114,17 +118,14 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
 	}
 
-	r.createPool(machinePoolScope, clusterScope)
-	return ctrl.Result{}, nil
+	// todo: defer conditions + machinePoolScope.Close()
 
-	// From our first mob. this should be moved to createPool
-	// ec2svc := ec2.NewService(clusterScope)
-	// _, err = ec2svc.GetLaunchTemplate()
-	// if err != nil {
-	// 	return ctrl.Result{}, err
-	// }
+	// todo: handle deletions
+	if !awsMachinePool.ObjectMeta.DeletionTimestamp.IsZero() {
+		return r.reconcileDelete(machinePoolScope, clusterScope)
+	}
 
-	// return r.reconcileNormal(ctx, machinePoolScope, clusterScope)
+	return r.reconcileNormal(ctx, machinePoolScope, clusterScope)
 }
 
 func (r *AWSMachinePoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -135,14 +136,58 @@ func (r *AWSMachinePoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) (ctrl.Result, error) {
 	clusterScope.Info("Reconciling AWSMachine")
+
+	// todo: check for failure state, return early
+
 	// If the AWSMachinepool doesn't have our finalizer, add it
 	controllerutil.AddFinalizer(machinePoolScope.AWSMachinePool, infrav1.MachineFinalizer)
+
+	// todo: implement machinePoolScope.PatchObject for quickly registering the finalizer
+	// todo: check cluster InfrastructureReady
+
 	// Make sure bootstrap data is available and populated
+	if machinePoolScope.MachinePool.Spec.Template.Spec.Bootstrap.DataSecretName == nil {
+		machinePoolScope.Info("Bootstrap data secret reference is not yet available")
+		// conditions.MarkFalse(machinePoolScope.AWSMachinePool, infrav1.InstanceReadyCondition, infrav1.WaitingForBootstrapDataReason, clusterv1.ConditionSeverityInfo, "") //TODO: GetCondition()
+		return ctrl.Result{}, nil
+	}
 
-	// Find existing Instance
-	r.getASGService(clusterScope)
+	userData, err := machinePoolScope.GetRawBootstrapData()
+	if err != nil {
+		r.Recorder.Eventf(machinePoolScope.AWSMachinePool, corev1.EventTypeWarning, "FailedGetBootstrapData", err.Error())
+	}
+	machinePoolScope.Info("checking for existing launch template")
 
-	// Create new ASG
+	ec2svc := r.getEC2Service(clusterScope)
+	launchTemplate, err := ec2svc.GetLaunchTemplate(machinePoolScope.Name())
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if launchTemplate == nil {
+		machinePoolScope.Info("no existing launch template found, creating")
+		if _, err := ec2svc.CreateLaunchTemplate(machinePoolScope, userData); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	// Initialize ASG client
+	asgsvc := r.getASGService(clusterScope)
+
+	// Find existing ASG
+	asg, err := r.findASG(machinePoolScope, asgsvc)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if asg == nil {
+
+		// Create new ASG
+		_, err = r.createPool(machinePoolScope, clusterScope)
+		if err != nil {
+			//TODO: ADd conditions
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
 
 	// Make sure Spec.ProviderID is always set.
 	// machinePoolScope.SetProviderID(instance.ID, instance.AvailabilityZone)
@@ -156,6 +201,13 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 }
 
 func (r *AWSMachinePoolReconciler) reconcileDelete(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) (ctrl.Result, error) {
+	// The ASG was never created or was deleted by some other entity
+	// One way to reach this state:
+	// 1. Scale deployment to 0
+	// 2. Rename ASG and delete ProviderID from spec of both MachinePool
+	// and AWSMachinePool
+	// 3. Issue a delete
+	// 4. Scale controller deployment to 1
 	clusterScope.Info("Handling things")
 	return ctrl.Result{}, nil
 }
@@ -165,24 +217,22 @@ func (r *AWSMachinePoolReconciler) updatePool(machinePoolScope *scope.MachinePoo
 	return ctrl.Result{}, nil
 }
 
-func (r *AWSMachinePoolReconciler) createPool(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) (*infrav1.AutoScalingGroup, error) {
+func (r *AWSMachinePoolReconciler) createPool(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) (*expinfrav1.AutoScalingGroup, error) {
 	clusterScope.Info("Initializing ASG client")
 
 	asgsvc := r.getASGService(clusterScope)
-	clusterScope.Info("Creating Autoscaling Group")
+
+	machinePoolScope.Info("Creating Autoscaling Group")
 	asg, err := asgsvc.CreateASG(machinePoolScope)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create AWSMachinePool")
 	}
+
 	return asg, nil
 }
 
-func (r *AWSMachinePoolReconciler) findASG(machinePoolScope *scope.MachinePoolScope, asgsvc services.ASGMachineInterface, clusterScope *scope.ClusterScope) (*infrav1.AutoScalingGroup, error) {
-	clusterScope.Info("Finding ASG")
-	// if instance is nil
-	//   createPool() (both launch template and ASG)
-	// else
-	//   updatePool()
+func (r *AWSMachinePoolReconciler) findASG(machinePoolScope *scope.MachinePoolScope, asgsvc services.ASGMachineInterface) (*expinfrav1.AutoScalingGroup, error) {
+	machinePoolScope.Info("Finding ASG")
 
 	// Parse the ProviderID
 	pid, err := noderefutil.NewProviderID(machinePoolScope.GetProviderID())

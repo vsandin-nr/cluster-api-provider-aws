@@ -17,18 +17,21 @@ limitations under the License.
 package ec2
 
 import (
+	"encoding/base64"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	infrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
+	"k8s.io/utils/pointer"
+	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
+	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/scope"
 )
 
 // GetLaunchTemplate returns the existing LaunchTemplate or nothing if it doesn't exist.
 // For now by name until we need the input to be something different
-func (s *Service) GetLaunchTemplate(name string) (*infrav1.AwsLaunchTemplate, error) {
+func (s *Service) GetLaunchTemplate(name string) (*expinfrav1.AwsLaunchTemplate, error) {
 	s.scope.V(2).Info("Looking for existing LaunchTemplates")
 
 	input := &ec2.DescribeLaunchTemplateVersionsInput{
@@ -56,18 +59,33 @@ func (s *Service) GetLaunchTemplate(name string) (*infrav1.AwsLaunchTemplate, er
 	return nil, nil
 }
 
-func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope) (*infrav1.AwsLaunchTemplate, error) {
+func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData []byte) (*expinfrav1.AwsLaunchTemplate, error) {
 	s.scope.Info("Create a new launch template")
 
 	s.scope.Info(scope.Name())
 
 	input := &ec2.CreateLaunchTemplateInput{
 		LaunchTemplateData: &ec2.RequestLaunchTemplateData{
-			ImageId:      aws.String(scope.AWSMachinePool.Spec.AwsLaunchTemplate.ImageId),
+			ImageId:      scope.AWSMachinePool.Spec.AwsLaunchTemplate.AMI.ID,
 			InstanceType: aws.String(scope.AWSMachinePool.Spec.AwsLaunchTemplate.InstanceType),
 			KeyName:      scope.AWSMachinePool.Spec.AwsLaunchTemplate.SSHKeyName,
+			UserData:     pointer.StringPtr(base64.StdEncoding.EncodeToString(userData)),
 		},
 		LaunchTemplateName: aws.String(scope.Name()),
+	}
+
+	ids, err := s.GetCoreNodeSecurityGroups()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, id := range ids {
+		input.LaunchTemplateData.SecurityGroupIds = append(input.LaunchTemplateData.SecurityGroupIds, aws.String(id))
+	}
+
+	// add additional security groups as well
+	for _, additionalGroup := range scope.AWSMachinePool.Spec.AdditionalSecurityGroups {
+		input.LaunchTemplateData.SecurityGroupIds = append(input.LaunchTemplateData.SecurityGroupIds, additionalGroup.ID)
 	}
 
 	result, err := s.EC2Client.CreateLaunchTemplate(input)
@@ -90,10 +108,12 @@ func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope) (*infrav1.
 }
 
 // SDKToLaunchTemplate converts an AWS EC2 SDK instance to the CAPA instance type.
-func (s *Service) SDKToLaunchTemplate(d *ec2.LaunchTemplateVersion) (*infrav1.AwsLaunchTemplate, error) {
+func (s *Service) SDKToLaunchTemplate(d *ec2.LaunchTemplateVersion) (*expinfrav1.AwsLaunchTemplate, error) {
 	v := d.LaunchTemplateData
-	i := &infrav1.AwsLaunchTemplate{
-		ImageId:       aws.StringValue(v.ImageId),
+	i := &expinfrav1.AwsLaunchTemplate{
+		AMI: infrav1.AWSResourceReference{
+			ID: v.ImageId,
+		},
 		InstanceType:  aws.StringValue(v.InstanceType),
 		SSHKeyName:    v.KeyName,
 		VersionNumber: d.VersionNumber,
@@ -108,9 +128,9 @@ func (s *Service) SDKToLaunchTemplate(d *ec2.LaunchTemplateVersion) (*infrav1.Aw
 	}
 
 	for _, bdm := range v.BlockDeviceMappings {
-		tmp := &infrav1.BlockDeviceMapping{
+		tmp := &expinfrav1.BlockDeviceMapping{
 			DeviceName: *bdm.DeviceName,
-			Ebs: infrav1.EBS{
+			Ebs: expinfrav1.EBS{
 				Encrypted:  *bdm.Ebs.Encrypted,
 				VolumeSize: *bdm.Ebs.VolumeSize,
 				VolumeType: *bdm.Ebs.VolumeType,
@@ -124,7 +144,7 @@ func (s *Service) SDKToLaunchTemplate(d *ec2.LaunchTemplateVersion) (*infrav1.Aw
 		for _, groups := range ni.Groups {
 			s = append(s, *groups)
 		}
-		tmp := &infrav1.NetworkInterface{
+		tmp := &expinfrav1.NetworkInterface{
 			DeviceIndex: *ni.DeviceIndex,
 			Groups:      s,
 		}
