@@ -31,7 +31,7 @@ import (
 
 // GetLaunchTemplate returns the existing LaunchTemplate or nothing if it doesn't exist.
 // For now by name until we need the input to be something different
-func (s *Service) GetLaunchTemplate(name string) (*expinfrav1.AwsLaunchTemplate, error) {
+func (s *Service) GetLaunchTemplate(name string) (*expinfrav1.AWSLaunchTemplate, error) {
 	s.scope.V(2).Info("Looking for existing LaunchTemplates")
 
 	input := &ec2.DescribeLaunchTemplateVersionsInput{
@@ -59,19 +59,45 @@ func (s *Service) GetLaunchTemplate(name string) (*expinfrav1.AwsLaunchTemplate,
 	return nil, nil
 }
 
-func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData []byte) (*expinfrav1.AwsLaunchTemplate, error) {
+func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData []byte) (*expinfrav1.AWSLaunchTemplate, error) {
 	s.scope.Info("Create a new launch template")
-
+	s.scope.Info("UserData", "UserData", string(userData))
 	s.scope.Info(scope.Name())
 
 	input := &ec2.CreateLaunchTemplateInput{
 		LaunchTemplateData: &ec2.RequestLaunchTemplateData{
-			ImageId:      scope.AWSMachinePool.Spec.AwsLaunchTemplate.AMI.ID,
-			InstanceType: aws.String(scope.AWSMachinePool.Spec.AwsLaunchTemplate.InstanceType),
-			KeyName:      scope.AWSMachinePool.Spec.AwsLaunchTemplate.SSHKeyName,
-			UserData:     pointer.StringPtr(base64.StdEncoding.EncodeToString(userData)),
+			ImageId:      scope.AWSMachinePool.Spec.AWSLaunchTemplate.AMI.ID,
+			InstanceType: aws.String(scope.AWSMachinePool.Spec.AWSLaunchTemplate.InstanceType),
+			IamInstanceProfile: &ec2.LaunchTemplateIamInstanceProfileSpecificationRequest{
+				Name: aws.String(scope.AWSMachinePool.Spec.AWSLaunchTemplate.IamInstanceProfile),
+			},
+			KeyName:  scope.AWSMachinePool.Spec.AWSLaunchTemplate.SSHKeyName,
+			UserData: pointer.StringPtr(base64.StdEncoding.EncodeToString(userData)),
 		},
 		LaunchTemplateName: aws.String(scope.Name()),
+	}
+
+	additionalTags := scope.AdditionalTags()
+	// Set the cloud provider tag
+	additionalTags[infrav1.ClusterAWSCloudProviderTagKey(s.scope.Name())] = string(infrav1.ResourceLifecycleOwned)
+
+	tags := infrav1.Build(infrav1.BuildParams{
+		ClusterName: s.scope.Name(),
+		Lifecycle:   infrav1.ResourceLifecycleOwned,
+		Name:        aws.String(scope.Name()),
+		Role:        aws.String("node"),
+		Additional:  additionalTags,
+	})
+
+	if len(tags) > 0 {
+		spec := &ec2.LaunchTemplateTagSpecificationRequest{ResourceType: aws.String(ec2.ResourceTypeInstance)}
+		for key, value := range tags {
+			spec.Tags = append(spec.Tags, &ec2.Tag{
+				Key:   aws.String(key),
+				Value: aws.String(value),
+			})
+		}
+		input.LaunchTemplateData.TagSpecifications = append(input.LaunchTemplateData.TagSpecifications, spec)
 	}
 
 	ids, err := s.GetCoreNodeSecurityGroups()
@@ -80,6 +106,7 @@ func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData [
 	}
 
 	for _, id := range ids {
+		s.scope.Info(id)
 		input.LaunchTemplateData.SecurityGroupIds = append(input.LaunchTemplateData.SecurityGroupIds, aws.String(id))
 	}
 
@@ -87,6 +114,7 @@ func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData [
 	for _, additionalGroup := range scope.AWSMachinePool.Spec.AdditionalSecurityGroups {
 		input.LaunchTemplateData.SecurityGroupIds = append(input.LaunchTemplateData.SecurityGroupIds, additionalGroup.ID)
 	}
+	s.scope.Info("Security Groups", "security groups", input.LaunchTemplateData.SecurityGroupIds)
 
 	result, err := s.EC2Client.CreateLaunchTemplate(input)
 	if err != nil {
@@ -108,9 +136,9 @@ func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData [
 }
 
 // SDKToLaunchTemplate converts an AWS EC2 SDK instance to the CAPA instance type.
-func (s *Service) SDKToLaunchTemplate(d *ec2.LaunchTemplateVersion) (*expinfrav1.AwsLaunchTemplate, error) {
+func (s *Service) SDKToLaunchTemplate(d *ec2.LaunchTemplateVersion) (*expinfrav1.AWSLaunchTemplate, error) {
 	v := d.LaunchTemplateData
-	i := &expinfrav1.AwsLaunchTemplate{
+	i := &expinfrav1.AWSLaunchTemplate{
 		AMI: infrav1.AWSResourceReference{
 			ID: v.ImageId,
 		},
