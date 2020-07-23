@@ -67,18 +67,18 @@ func (mr *MockEC2MachineInterfaceMockRecorder) CreateInstance(arg0, arg1 interfa
 }
 
 // CreateLaunchTemplate mocks base method
-func (m *MockEC2MachineInterface) CreateLaunchTemplate(arg0 *scope.MachinePoolScope) (*v1alpha30.AwsLaunchTemplate, error) {
+func (m *MockEC2MachineInterface) CreateLaunchTemplate(arg0 *scope.MachinePoolScope, arg1 []byte) (*v1alpha30.AwsLaunchTemplate, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateLaunchTemplate", arg0)
+	ret := m.ctrl.Call(m, "CreateLaunchTemplate", arg0, arg1)
 	ret0, _ := ret[0].(*v1alpha30.AwsLaunchTemplate)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateLaunchTemplate indicates an expected call of CreateLaunchTemplate
-func (mr *MockEC2MachineInterfaceMockRecorder) CreateLaunchTemplate(arg0 interface{}) *gomock.Call {
+func (mr *MockEC2MachineInterfaceMockRecorder) CreateLaunchTemplate(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateLaunchTemplate", reflect.TypeOf((*MockEC2MachineInterface)(nil).CreateLaunchTemplate), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateLaunchTemplate", reflect.TypeOf((*MockEC2MachineInterface)(nil).CreateLaunchTemplate), arg0, arg1)
 }
 
 // DetachSecurityGroupsFromNetworkInterface mocks base method
