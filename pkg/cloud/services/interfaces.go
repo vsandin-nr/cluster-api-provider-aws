@@ -26,7 +26,7 @@ import (
 // actuator
 type ASGMachineInterface interface {
 	AsgIfExists(id *string) (*expinfrav1.AutoScalingGroup, error)
-	GetRunningAsgByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error)
+	GetAsgByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error)
 	CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error)
 }
 
@@ -46,8 +46,8 @@ type EC2MachineInterface interface {
 	TerminateInstanceAndWait(instanceID string) error
 	DetachSecurityGroupsFromNetworkInterface(groups []string, interfaceID string) error
 
-	GetLaunchTemplate(name string) (*expinfrav1.AwsLaunchTemplate, error)
-	CreateLaunchTemplate(scope *scope.MachinePoolScope, userData []byte) (*expinfrav1.AwsLaunchTemplate, error)
+	GetLaunchTemplate(name string) (*expinfrav1.AWSLaunchTemplate, error)
+	CreateLaunchTemplate(scope *scope.MachinePoolScope, userData []byte) (*expinfrav1.AWSLaunchTemplate, error)
 }
 
 // SecretsManagerInterface encapsulated the methods exposed to the

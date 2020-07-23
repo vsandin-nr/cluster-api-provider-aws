@@ -34,17 +34,18 @@ type AWSMachinePoolSpec struct {
 	HealthCheckType                  string               `json:"healthCheckType,omitempty"`
 	HealthCheckGracePeriod           int                  `json:"healthCheckGracePeriod,omitempty"`
 	VPCZoneIdentifier                string               `json:"vpcZoneIdentifier,omitempty"`
-	Tags                             []Tags               `json:"tags,omitempty"`
+	AdditionalTags                   infrav1.Tags         `json:"additionalTags,omitempty"`
 	TerminationPolicies              []string             `json:"terminationPolicies,omitempty"`
 	NewInstancesProtectedFromScaleIn bool                 `json:"newInstancesProtectedFromScaleIn,omitempty"`
 	ServiceLinkedRoleARN             string               `json:"serviceLinkedRoleARN,omitempty"`
-	AwsLaunchTemplate                AwsLaunchTemplate    `json:"awsLaunchTemplate,omitempty"`
+	AWSLaunchTemplate                AWSLaunchTemplate    `json:"awsLaunchTemplate,omitempty"`
 
 	// AdditionalSecurityGroups is an array of references to security groups that should be applied to the
 	// instance. These security groups would be set in addition to any security groups defined
 	// at the cluster level or in the actuator.
 	// +optional
 	AdditionalSecurityGroups []infrav1.AWSResourceReference `json:"additionalSecurityGroups,omitempty"`
+	Subnets                  []string                       `json:"subnets,omitempty"`
 }
 
 // AWSMachinePoolStatus defines the observed state of AWSMachinePool
