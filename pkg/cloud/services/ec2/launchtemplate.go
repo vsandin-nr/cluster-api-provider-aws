@@ -75,7 +75,7 @@ func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData [
 	}
 
 	if len(scope.AWSMachinePool.Spec.AdditionalTags) > 0 {
-		spec := &ec2.TagSpecification{ResourceType: aws.String(ec2.ResourceTypeInstance)}
+		spec := &ec2.TagSpecification{ResourceType: aws.String(ec2.ResourceTypeLaunchTemplate)}
 		for key, value := range scope.AWSMachinePool.Spec.AdditionalTags {
 			spec.Tags = append(spec.Tags, &ec2.Tag{
 				Key:   aws.String(key),

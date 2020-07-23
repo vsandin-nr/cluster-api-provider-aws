@@ -20,18 +20,21 @@ import (
 	"context"
 
 	"sigs.k8s.io/cluster-api/controllers/noderefutil"
+	"sigs.k8s.io/cluster-api/util"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
-	expclusterv1 "sigs.k8s.io/cluster-api/exp/api/v1alpha3"
+	capiv1exp "sigs.k8s.io/cluster-api/exp/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
@@ -67,6 +70,9 @@ func (r *AWSMachinePoolReconciler) getEC2Service(scope *scope.ClusterScope) serv
 
 // +kubebuilder:rbac:groups=exp.infrastructure.cluster.x-k8s.io,resources=awsmachinepools,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=exp.infrastructure.cluster.x-k8s.io,resources=awsmachinepools/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=exp.cluster.x-k8s.io,resources=machinepools;machinepools/status,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups="",resources=secrets;,verbs=get;list;watch
 
 // Reconcile TODO: add comment bc exported
 func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
@@ -83,19 +89,44 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return ctrl.Result{}, err
 	}
 
-	// TODO: util.GetOwnerMachinePool?
-	// TODO: util.GetClusterFromMetadata
+	// Fetch the CAPI MachinePool
+	machinePool, err := getOwnerMachinePool(ctx, r.Client, awsMachinePool.ObjectMeta)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if machinePool == nil {
+		logger.Info("MachinePool Controller has not yet set OwnerRef")
+		return reconcile.Result{}, nil
+	}
+	logger = logger.WithValues("machinePool", machinePool.Name)
+
+	// Fetch the Cluster.
+	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machinePool.ObjectMeta)
+	if err != nil {
+		logger.Info("MachinePool is missing cluster label or cluster does not exist")
+		return reconcile.Result{}, nil
+	}
+
+	logger = logger.WithValues("cluster", cluster.Name)
+
+	awsClusterName := client.ObjectKey{
+		Namespace: awsMachinePool.Namespace,
+		Name:      cluster.Spec.InfrastructureRef.Name,
+	}
+	awsCluster := &infrav1.AWSCluster{}
+	if err := r.Client.Get(ctx, awsClusterName, awsCluster); err != nil {
+		logger.Info("AzureCluster is not available yet")
+		return reconcile.Result{}, nil
+	}
+
+	logger = logger.WithValues("AzureCluster", awsCluster.Name)
 
 	// Create the cluster scope
 	clusterScope, err := scope.NewClusterScope(scope.ClusterScopeParams{
-		Client:  r.Client,
-		Logger:  logger,
-		Cluster: &clusterv1.Cluster{},
-		AWSCluster: &infrav1.AWSCluster{
-			Spec: infrav1.AWSClusterSpec{
-				Region: "us-east-1",
-			},
-		},
+		Client:     r.Client,
+		Logger:     logger,
+		Cluster:    cluster,
+		AWSCluster: awsCluster,
 	})
 	if err != nil {
 		return ctrl.Result{}, err
@@ -103,15 +134,11 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 
 	// Create the machine poolscope
 	machinePoolScope, err := scope.NewMachinePoolScope(scope.MachinePoolScopeParams{
-		Logger:      logger,
-		Client:      r.Client,
-		Cluster:     &clusterv1.Cluster{},
-		MachinePool: &expclusterv1.MachinePool{},
-		AWSCluster: &infrav1.AWSCluster{
-			Spec: infrav1.AWSClusterSpec{
-				Region: "us-east-1",
-			},
-		},
+		Logger:         logger,
+		Client:         r.Client,
+		Cluster:        cluster,
+		MachinePool:    machinePool,
+		AWSCluster:     awsCluster,
 		AWSMachinePool: awsMachinePool,
 	})
 	if err != nil {
@@ -147,6 +174,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 
 	// Make sure bootstrap data is available and populated
 	if machinePoolScope.MachinePool.Spec.Template.Spec.Bootstrap.DataSecretName == nil {
+		machinePoolScope.Info("I need to know the name", "dataSecretName", machinePoolScope.MachinePool.Spec.Template.Spec.Bootstrap.DataSecretName)
 		machinePoolScope.Info("Bootstrap data secret reference is not yet available")
 		// conditions.MarkFalse(machinePoolScope.AWSMachinePool, infrav1.InstanceReadyCondition, infrav1.WaitingForBootstrapDataReason, clusterv1.ConditionSeverityInfo, "") //TODO: GetCondition()
 		return ctrl.Result{}, nil
@@ -256,4 +284,31 @@ func (r *AWSMachinePoolReconciler) findASG(machinePoolScope *scope.MachinePoolSc
 	}
 
 	return asg, nil
+}
+
+// getOwnerMachinePool returns the MachinePool object owning the current resource.
+func getOwnerMachinePool(ctx context.Context, c client.Client, obj metav1.ObjectMeta) (*capiv1exp.MachinePool, error) {
+	for _, ref := range obj.OwnerReferences {
+		if ref.Kind != "MachinePool" {
+			continue
+		}
+		gv, err := schema.ParseGroupVersion(ref.APIVersion)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		if gv.Group == capiv1exp.GroupVersion.Group {
+			return getMachinePoolByName(ctx, c, obj.Namespace, ref.Name)
+		}
+	}
+	return nil, nil
+}
+
+// getMachinePoolByName finds and return a Machine object using the specified params.
+func getMachinePoolByName(ctx context.Context, c client.Client, namespace, name string) (*capiv1exp.MachinePool, error) {
+	m := &capiv1exp.MachinePool{}
+	key := client.ObjectKey{Name: name, Namespace: namespace}
+	if err := c.Get(ctx, key, m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }

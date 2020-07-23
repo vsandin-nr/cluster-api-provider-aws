@@ -30,6 +30,7 @@ import (
 	"k8s.io/klog"
 	"k8s.io/klog/klogr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
+	expclusterv1 "sigs.k8s.io/cluster-api/exp/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -55,6 +56,7 @@ func init() {
 	_ = infrav1alpha3.AddToScheme(scheme)
 	_ = clusterv1.AddToScheme(scheme)
 	_ = expinfrav1alpha3.AddToScheme(scheme)
+	_ = expclusterv1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 
