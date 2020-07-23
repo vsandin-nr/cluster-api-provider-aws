@@ -147,7 +147,6 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 
 	// todo: defer conditions + machinePoolScope.Close()
 
-	// todo: handle deletions
 	if !awsMachinePool.ObjectMeta.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(machinePoolScope, clusterScope)
 	}
@@ -156,6 +155,7 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 }
 
 func (r *AWSMachinePoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// todo: add watch for MachinePool object (see AWSMachine's SetupWithManager)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&expinfrav1.AWSMachinePool{}).
 		Complete(r)
