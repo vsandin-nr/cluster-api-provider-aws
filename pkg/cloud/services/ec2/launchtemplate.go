@@ -23,6 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/pkg/errors"
 	"k8s.io/utils/pointer"
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
@@ -135,10 +136,28 @@ func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData [
 	return nil, nil
 }
 
+// DeleteLaunchTemplate delete a launch template
+func (s *Service) DeleteLaunchTemplate(id string) error {
+	s.scope.V(2).Info("Deleting launch template", "id", id)
+
+	input := &ec2.DeleteLaunchTemplateInput{
+		LaunchTemplateId: aws.String(id),
+	}
+
+	if _, err := s.EC2Client.DeleteLaunchTemplate(input); err != nil {
+		return errors.Wrapf(err, "failed to delete launch template %q", id)
+	}
+
+	s.scope.V(2).Info("Deleted launch template", "id", id)
+	return nil
+}
+
 // SDKToLaunchTemplate converts an AWS EC2 SDK instance to the CAPA instance type.
 func (s *Service) SDKToLaunchTemplate(d *ec2.LaunchTemplateVersion) (*expinfrav1.AWSLaunchTemplate, error) {
 	v := d.LaunchTemplateData
 	i := &expinfrav1.AWSLaunchTemplate{
+		ID:   aws.StringValue(d.LaunchTemplateId),
+		Name: aws.StringValue(d.LaunchTemplateName),
 		AMI: infrav1.AWSResourceReference{
 			ID: v.ImageId,
 		},

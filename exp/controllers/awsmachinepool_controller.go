@@ -49,11 +49,11 @@ type AWSMachinePoolReconciler struct {
 	client.Client
 	Log               logr.Logger
 	Recorder          record.EventRecorder
-	asgServiceFactory func(*scope.ClusterScope) services.ASGMachineInterface
+	asgServiceFactory func(*scope.ClusterScope) services.ASGInterface
 	ec2ServiceFactory func(*scope.ClusterScope) services.EC2MachineInterface
 }
 
-func (r *AWSMachinePoolReconciler) getASGService(scope *scope.ClusterScope) services.ASGMachineInterface {
+func (r *AWSMachinePoolReconciler) getASGService(scope *scope.ClusterScope) services.ASGInterface {
 	if r.asgServiceFactory != nil {
 		return r.asgServiceFactory(scope)
 	}
@@ -240,14 +240,55 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 }
 
 func (r *AWSMachinePoolReconciler) reconcileDelete(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) (ctrl.Result, error) {
-	// The ASG was never created or was deleted by some other entity
-	// One way to reach this state:
-	// 1. Scale deployment to 0
-	// 2. Rename ASG and delete ProviderID from spec of both MachinePool
-	// and AWSMachinePool
-	// 3. Issue a delete
-	// 4. Scale controller deployment to 1
-	clusterScope.Info("Handling things")
+	clusterScope.Info("Handling deleted AWSMachinePool")
+
+	ec2Svc := r.getEC2Service(clusterScope)
+	asgSvc := r.getASGService(clusterScope)
+
+	asg, err := r.findASG(machinePoolScope, asgSvc)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if asg == nil {
+		machinePoolScope.V(2).Info("Unable to locate ASG")
+		r.Recorder.Eventf(machinePoolScope.AWSMachinePool, corev1.EventTypeNormal, "NoASGFound", "Unable to find matching ASG")
+	} else {
+
+		switch asg.Status {
+		case expinfrav1.ASGStatusDeleteInProgress:
+			// ASG is already deleting
+			machinePoolScope.Info("ASG is already deleting", "name", asg.Name)
+		default:
+			machinePoolScope.Info("Deleting ASG", "id", asg.Name, "status", asg.Status)
+			if err := asgSvc.DeleteASGAndWait(asg.Name); err != nil {
+				r.Recorder.Eventf(machinePoolScope.AWSMachinePool, corev1.EventTypeWarning, "FailedDelete", "Failed to delete ASG %q: %v", asg.Name, err)
+				return ctrl.Result{}, errors.Wrap(err, "failed to delete ASG")
+			}
+		}
+	}
+
+	launchTemplate, err := ec2Svc.GetLaunchTemplate(machinePoolScope.Name())
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if launchTemplate == nil {
+		machinePoolScope.V(2).Info("Unable to locate launch template")
+		r.Recorder.Eventf(machinePoolScope.AWSMachinePool, corev1.EventTypeNormal, "NoASGFound", "Unable to find matching ASG")
+		controllerutil.RemoveFinalizer(machinePoolScope.AWSMachinePool, expinfrav1.MachinePoolFinalizer)
+		return ctrl.Result{}, nil
+	}
+
+	machinePoolScope.Info("deleting launch template", "name", launchTemplate.Name)
+	if err := ec2Svc.DeleteLaunchTemplate(launchTemplate.ID); err != nil {
+		r.Recorder.Eventf(machinePoolScope.AWSMachinePool, corev1.EventTypeWarning, "FailedDelete", "Failed to delete launch template %q: %v", launchTemplate.Name, err)
+		return ctrl.Result{}, errors.Wrap(err, "failed to delete ASG")
+	}
+
+	// remove finalizer
+	controllerutil.RemoveFinalizer(machinePoolScope.AWSMachinePool, expinfrav1.MachinePoolFinalizer)
+
 	return ctrl.Result{}, nil
 }
 
@@ -270,7 +311,7 @@ func (r *AWSMachinePoolReconciler) createPool(machinePoolScope *scope.MachinePoo
 	return asg, nil
 }
 
-func (r *AWSMachinePoolReconciler) findASG(machinePoolScope *scope.MachinePoolScope, asgsvc services.ASGMachineInterface) (*expinfrav1.AutoScalingGroup, error) {
+func (r *AWSMachinePoolReconciler) findASG(machinePoolScope *scope.MachinePoolScope, asgsvc services.ASGInterface) (*expinfrav1.AutoScalingGroup, error) {
 	machinePoolScope.Info("Finding ASG")
 
 	// Parse the ProviderID
@@ -291,7 +332,7 @@ func (r *AWSMachinePoolReconciler) findASG(machinePoolScope *scope.MachinePoolSc
 	// If the ProviderID is empty, try to query the instance using tags.
 	asg, err := asgsvc.GetAsgByName(machinePoolScope)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to query AWSMachinePool by tags")
+		return nil, errors.Wrapf(err, "failed to query AWSMachinePool by name")
 	}
 
 	return asg, nil

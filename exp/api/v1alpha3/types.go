@@ -42,6 +42,8 @@ type NetworkInterface struct {
 // AwsLaunchTemplate defines the desired state of AWSLaunchTemplate
 type AWSLaunchTemplate struct {
 	// all the things needed for a launch template
+	ID   string `json:"id,string"`
+	Name string `json:"name,string"`
 
 	IamInstanceProfile  string               `json:"iamInstanceProfile,omitempty"`
 	BlockDeviceMappings []BlockDeviceMapping `json:"blockDeviceMappings,omitempty"`
@@ -97,15 +99,24 @@ type Tags map[string]string
 
 // AutoScalingGroup describes an AWS autoscaling group.
 type AutoScalingGroup struct {
-	ID string `json:"id"`
 	// The tags associated with the instance.
-	Tags                 map[string]string `json:"tags,omitempty"`
-	AutoScalingGroupName string
-	DesiredCapacity      int64
+	Tags            map[string]string `json:"tags,omitempty"`
+	Name            string            `json:"name,omitempty"`
+	DesiredCapacity int64             `json:"desiredCapacity,omitempty"`
 	// LaunchTemplateSpecification *autoscaling.LaunchTemplateSpecification
-	MaxSize int64
-	MinSize int64
+	MaxSize int64 `json:"maxSize,omitempty"`
+	MinSize int64 `json:"minSize,omitempty"`
 	// MixedInstancesPolicy        *autoscaling.MixedInstancesPolicy
-	PlacementGroup    string
-	VPCZoneIdentifier []string
+	PlacementGroup    string   `json:"placementGroup,omitempty"`
+	VPCZoneIdentifier []string `json:"vpcZoneIdentifier,omitempty"`
+
+	Status ASGStatus
 }
+
+// ASGStatus is a status string returned by the autoscaling API
+type ASGStatus string
+
+var (
+	// ASGStatusDeleteInProgress is the string representing an ASG that is currently deleting
+	ASGStatusDeleteInProgress = ASGStatus("Delete in progress")
+)
