@@ -57,8 +57,8 @@ type MachinePoolScopeParams struct {
 
 // GetProviderID returns the AWSMachine providerID from the spec.
 func (m *MachinePoolScope) GetProviderID() string {
-	if m.AWSMachinePool.Spec.ProviderID != nil {
-		return *m.AWSMachinePool.Spec.ProviderID
+	if m.AWSMachinePool.Spec.ProviderID != "" {
+		return m.AWSMachinePool.Spec.ProviderID
 	}
 	return ""
 }
@@ -163,4 +163,12 @@ func (m *MachinePoolScope) PatchObject() error {
 // Close the MachinePoolScope by updating the machinepool spec, machine status.
 func (m *MachinePoolScope) Close() error {
 	return m.PatchObject()
+}
+
+// SetAnnotation sets a key value annotation on the AWSMachine.
+func (m *MachinePoolScope) SetAnnotation(key, value string) {
+	if m.AWSMachinePool.Annotations == nil {
+		m.AWSMachinePool.Annotations = map[string]string{}
+	}
+	m.AWSMachinePool.Annotations[key] = value
 }
