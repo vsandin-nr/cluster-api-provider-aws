@@ -34,7 +34,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
@@ -165,6 +167,12 @@ func (r *AWSMachinePoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// todo: add watch for MachinePool object (see AWSMachine's SetupWithManager)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&expinfrav1.AWSMachinePool{}).
+		Watches(
+			&source.Kind{Type: &capiv1exp.MachinePool{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: machinePoolToInfrastructureMapFunc(expinfrav1.GroupVersion.WithKind("AWSMachinePool")),
+			},
+		).
 		Complete(r)
 }
 
@@ -363,4 +371,29 @@ func getMachinePoolByName(ctx context.Context, c client.Client, namespace, name 
 		return nil, err
 	}
 	return m, nil
+}
+
+func machinePoolToInfrastructureMapFunc(gvk schema.GroupVersionKind) handler.ToRequestsFunc {
+	return func(o handler.MapObject) []reconcile.Request {
+		m, ok := o.Object.(*capiv1exp.MachinePool)
+		if !ok {
+			return nil
+		}
+
+		gk := gvk.GroupKind()
+		// Return early if the GroupKind doesn't match what we expect
+		infraGK := m.Spec.Template.Spec.InfrastructureRef.GroupVersionKind().GroupKind()
+		if gk != infraGK {
+			return nil
+		}
+
+		return []reconcile.Request{
+			{
+				NamespacedName: client.ObjectKey{
+					Namespace: m.Namespace,
+					Name:      m.Spec.Template.Spec.InfrastructureRef.Name,
+				},
+			},
+		}
+	}
 }
