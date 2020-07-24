@@ -24,6 +24,7 @@ import (
 	"github.com/pkg/errors"
 	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/awserrors"
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/converters"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/scope"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/record"
 )
@@ -32,8 +33,16 @@ import (
 // SDKToAugoScalingGroup populates all AugoScalingGroup fields
 func (s *Service) SDKToAutoScalingGroup(v *autoscaling.Group) (*expinfrav1.AutoScalingGroup, error) {
 	i := &expinfrav1.AutoScalingGroup{
-		ID: aws.StringValue(v.AutoScalingGroupName),
+		Name: aws.StringValue(v.AutoScalingGroupName),
 		//TODO: determine what additional values go here and what else should be in the struct
+	}
+
+	if v.Status != nil {
+		i.Status = expinfrav1.ASGStatus(*v.Status)
+	}
+
+	if len(v.Tags) > 0 {
+		i.Tags = converters.ASGTagsToMap(v.Tags)
 	}
 
 	return i, nil
@@ -105,11 +114,11 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 	s.scope.Info("Creating an autoscaling group for a machine pool")
 
 	input := &expinfrav1.AutoScalingGroup{
-		AutoScalingGroupName: scope.Name(), //TODO: define dynamically - borrow logic from ec2
-		DesiredCapacity:      1,            //TODO: define elsewhere
-		MaxSize:              5,            //TODO: Define for realsies later
-		MinSize:              1,
-		VPCZoneIdentifier:    scope.AWSMachinePool.Spec.Subnets,
+		Name:              scope.Name(), //TODO: define dynamically - borrow logic from ec2
+		DesiredCapacity:   1,            //TODO: define elsewhere
+		MaxSize:           5,            //TODO: Define for realsies later
+		MinSize:           1,
+		VPCZoneIdentifier: scope.AWSMachinePool.Spec.Subnets,
 	}
 
 	// TODO: do additional tags
@@ -131,10 +140,10 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 
 func (s *Service) runPool(i *expinfrav1.AutoScalingGroup) (*expinfrav1.AutoScalingGroup, error) {
 	input := &autoscaling.CreateAutoScalingGroupInput{
-		AutoScalingGroupName: aws.String(i.AutoScalingGroupName),
+		AutoScalingGroupName: aws.String(i.Name),
 		DesiredCapacity:      aws.Int64(i.DesiredCapacity),
 		LaunchTemplate: &autoscaling.LaunchTemplateSpecification{
-			LaunchTemplateName: aws.String(i.AutoScalingGroupName),
+			LaunchTemplateName: aws.String(i.Name),
 		},
 		MaxSize:           aws.Int64(i.MaxSize),
 		MinSize:           aws.Int64(i.MinSize),
@@ -152,4 +161,38 @@ func (s *Service) runPool(i *expinfrav1.AutoScalingGroup) (*expinfrav1.AutoScali
 	// verify ASG was created
 
 	return s.SDKToAutoScalingGroup(&autoscaling.Group{}) //TODO: fill with real one
+}
+
+func (s *Service) DeleteASGAndWait(name string) error {
+	if err := s.DeleteASG(name); err != nil {
+		return err
+	}
+
+	s.scope.V(2).Info("Waiting for ASG to be deleted", "name", name)
+
+	input := &autoscaling.DescribeAutoScalingGroupsInput{
+		AutoScalingGroupNames: aws.StringSlice([]string{name}),
+	}
+
+	if err := s.ASGClient.WaitUntilGroupNotExists(input); err != nil {
+		return errors.Wrapf(err, "failed to wait for ASG %q deletion", name)
+	}
+
+	return nil
+}
+
+func (s *Service) DeleteASG(name string) error {
+	s.scope.V(2).Info("Attempting to delete ASG", "name", name)
+
+	input := &autoscaling.DeleteAutoScalingGroupInput{
+		AutoScalingGroupName: aws.String(name),
+		ForceDelete:          aws.Bool(true),
+	}
+
+	if _, err := s.ASGClient.DeleteAutoScalingGroup(input); err != nil {
+		return errors.Wrapf(err, "failed to delete ASG %q", name)
+	}
+
+	s.scope.V(2).Info("Deleted ASG", "name", name)
+	return nil
 }
