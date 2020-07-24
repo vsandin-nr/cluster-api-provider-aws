@@ -30,12 +30,14 @@ import (
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/record"
 )
 
-// SDKToAutoScalingGroup converts an AWS EC2 SDK AugoScalingGroup to the CAPA AugoScalingGroup type.
-// SDKToAugoScalingGroup populates all AugoScalingGroup fields
+// SDKToAutoScalingGroup converts an AWS EC2 SDK AutoScalingGroup to the CAPA AutoScalingGroup type.
 func (s *Service) SDKToAutoScalingGroup(v *autoscaling.Group) (*expinfrav1.AutoScalingGroup, error) {
 	i := &expinfrav1.AutoScalingGroup{
-		ID:   aws.StringValue(v.AutoScalingGroupARN),
-		Name: aws.StringValue(v.AutoScalingGroupName),
+		ID:              aws.StringValue(v.AutoScalingGroupARN),
+		Name:            aws.StringValue(v.AutoScalingGroupName),
+		DesiredCapacity: int32(aws.Int64Value(v.DesiredCapacity)),
+		MaxSize:         int32(aws.Int64Value(v.MaxSize)),
+		MinSize:         int32(aws.Int64Value(v.MinSize)),
 		//TODO: determine what additional values go here and what else should be in the struct
 	}
 
@@ -125,10 +127,10 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 	s.scope.Info("Creating an autoscaling group for a machine pool")
 
 	input := &expinfrav1.AutoScalingGroup{
-		Name:              scope.Name(), //TODO: define dynamically - borrow logic from ec2
-		DesiredCapacity:   1,            //TODO: define elsewhere
-		MaxSize:           5,            //TODO: Define for realsies later
-		MinSize:           1,
+		Name:              scope.Name(),
+		DesiredCapacity:   *scope.MachinePool.Spec.Replicas,
+		MaxSize:           int32(scope.AWSMachinePool.Spec.MaxSize),
+		MinSize:           scope.AWSMachinePool.Spec.MinSize,
 		VPCZoneIdentifier: scope.AWSMachinePool.Spec.Subnets,
 	}
 
@@ -152,12 +154,15 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 func (s *Service) runPool(i *expinfrav1.AutoScalingGroup) (*expinfrav1.AutoScalingGroup, error) {
 	input := &autoscaling.CreateAutoScalingGroupInput{
 		AutoScalingGroupName: aws.String(i.Name),
-		DesiredCapacity:      aws.Int64(i.DesiredCapacity),
+		DesiredCapacity:      aws.Int64(int64(i.DesiredCapacity)),
 		LaunchTemplate: &autoscaling.LaunchTemplateSpecification{
 			LaunchTemplateName: aws.String(i.Name),
+
+			// always use the latest version of the associated launch template
+			Version: aws.String("$Latest"),
 		},
-		MaxSize:           aws.Int64(i.MaxSize),
-		MinSize:           aws.Int64(i.MinSize),
+		MaxSize:           aws.Int64(int64(i.MaxSize)),
+		MinSize:           aws.Int64(int64(i.MinSize)),
 		VPCZoneIdentifier: aws.String(strings.Join(i.VPCZoneIdentifier, ", ")),
 	}
 
@@ -205,5 +210,21 @@ func (s *Service) DeleteASG(name string) error {
 	}
 
 	s.scope.V(2).Info("Deleted ASG", "name", name)
+	return nil
+}
+
+func (s *Service) UpdateASG(scope *scope.MachinePoolScope) error {
+	input := &autoscaling.UpdateAutoScalingGroupInput{
+		AutoScalingGroupName: aws.String(scope.Name()), //TODO: define dynamically - borrow logic from ec2
+		DesiredCapacity:      aws.Int64(int64(*scope.MachinePool.Spec.Replicas)),
+		MaxSize:              aws.Int64(int64(scope.AWSMachinePool.Spec.MaxSize)),
+		MinSize:              aws.Int64(int64(scope.AWSMachinePool.Spec.MinSize)),
+		VPCZoneIdentifier:    aws.String(strings.Join(scope.AWSMachinePool.Spec.Subnets, ", ")),
+	}
+
+	if _, err := s.ASGClient.UpdateAutoScalingGroup(input); err != nil {
+		return errors.Wrapf(err, "failed to update ASG %q", scope.Name())
+	}
+
 	return nil
 }
