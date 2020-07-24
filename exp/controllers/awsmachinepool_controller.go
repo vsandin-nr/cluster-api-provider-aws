@@ -149,7 +149,6 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, r
 		return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
 	}
 
-	// todo: defer conditions + machinePoolScope.Close()
 	// Always close the scope when exiting this function so we can persist any AWSMachine changes.
 	defer func() {
 		// set Ready condition before AWSMachine is patched
@@ -254,6 +253,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 		return ctrl.Result{}, nil
 	}
 
+	// TODO:
 	// Make sure Spec.ProviderID is always set.
 	// machinePoolScope.SetProviderID(instance.ID, instance.AvailabilityZone)
 	// Get state of ASG
@@ -347,7 +347,7 @@ func (r *AWSMachinePoolReconciler) findASG(machinePoolScope *scope.MachinePoolSc
 
 	// If the ProviderID is populated, describe the ASG using the ID.
 	if err == nil {
-		asg, err := asgsvc.AsgIfExists(pointer.StringPtr(pid.ID()))
+		asg, err := asgsvc.ASGIfExists(pointer.StringPtr(pid.ID()))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to query AWSMachinePool")
 		}
@@ -355,7 +355,7 @@ func (r *AWSMachinePoolReconciler) findASG(machinePoolScope *scope.MachinePoolSc
 	}
 
 	// If the ProviderID is empty, try to query the instance using tags.
-	asg, err := asgsvc.GetAsgByName(machinePoolScope)
+	asg, err := asgsvc.GetASGByName(machinePoolScope)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to query AWSMachinePool by name")
 	}
