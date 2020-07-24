@@ -21,6 +21,7 @@ import (
 
 	"sigs.k8s.io/cluster-api/controllers/noderefutil"
 	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/conditions"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	capiv1exp "sigs.k8s.io/cluster-api/exp/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -147,9 +149,20 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, r
 		return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
 	}
 
-	// Always close the scope so we can persist changes
+	// todo: defer conditions + machinePoolScope.Close()
+	// Always close the scope when exiting this function so we can persist any AWSMachine changes.
 	defer func() {
-		// todo: conditions
+		// set Ready condition before AWSMachine is patched
+		conditions.SetSummary(machinePoolScope.AWSMachinePool,
+			conditions.WithConditions(
+				expinfrav1.ASGReadyCondition,
+				infrav1.SecurityGroupsReadyCondition,
+			),
+			conditions.WithStepCounterIfOnly(
+				expinfrav1.ASGReadyCondition,
+				infrav1.SecurityGroupsReadyCondition,
+			),
+		)
 
 		if err := machinePoolScope.Close(); err != nil && reterr == nil {
 			reterr = err
@@ -189,13 +202,17 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 		return ctrl.Result{}, err
 	}
 
-	// todo: check cluster InfrastructureReady
+	if !machinePoolScope.Cluster.Status.InfrastructureReady {
+		machinePoolScope.Info("Cluster infrastructure is not ready yet")
+		conditions.MarkFalse(machinePoolScope.AWSMachinePool, expinfrav1.ASGReadyCondition, infrav1.WaitingForClusterInfrastructureReason, clusterv1.ConditionSeverityInfo, "")
+		return ctrl.Result{}, nil
+	}
 
 	// Make sure bootstrap data is available and populated
 	if machinePoolScope.MachinePool.Spec.Template.Spec.Bootstrap.DataSecretName == nil {
 		machinePoolScope.Info("I need to know the name", "dataSecretName", machinePoolScope.MachinePool.Spec.Template.Spec.Bootstrap.DataSecretName)
 		machinePoolScope.Info("Bootstrap data secret reference is not yet available")
-		// conditions.MarkFalse(machinePoolScope.AWSMachinePool, infrav1.InstanceReadyCondition, infrav1.WaitingForBootstrapDataReason, clusterv1.ConditionSeverityInfo, "") //TODO: GetCondition()
+		conditions.MarkFalse(machinePoolScope.AWSMachinePool, expinfrav1.ASGReadyCondition, infrav1.WaitingForBootstrapDataReason, clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{}, nil
 	}
 
@@ -223,6 +240,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 	// Find existing ASG
 	asg, err := r.findASG(machinePoolScope, asgsvc)
 	if err != nil {
+		conditions.MarkUnknown(machinePoolScope.AWSMachinePool, expinfrav1.ASGReadyCondition, expinfrav1.ASGNotFoundReason, err.Error())
 		return ctrl.Result{}, err
 	}
 	if asg == nil {
@@ -230,7 +248,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 		// Create new ASG
 		_, err = r.createPool(machinePoolScope, clusterScope)
 		if err != nil {
-			//TODO: ADd conditions
+			conditions.MarkFalse(machinePoolScope.AWSMachinePool, expinfrav1.ASGReadyCondition, expinfrav1.ASGProvisionFailedReason, clusterv1.ConditionSeverityError, err.Error())
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -238,7 +256,6 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 
 	// Make sure Spec.ProviderID is always set.
 	// machinePoolScope.SetProviderID(instance.ID, instance.AvailabilityZone)
-
 	// Get state of ASG
 	// Set state
 	// Reconcile AWSMachinePool State
