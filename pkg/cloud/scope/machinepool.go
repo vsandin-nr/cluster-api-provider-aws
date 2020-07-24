@@ -32,6 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+//TODO: Move this to exp when code changes settle down
+
 // MachinePoolScope defines a scope defined around a machine and its cluster.
 type MachinePoolScope struct {
 	logr.Logger
@@ -50,8 +52,8 @@ type MachinePoolScopeParams struct {
 	Logger logr.Logger
 
 	Cluster        *clusterv1.Cluster
-	MachinePool    *expclusterv1.MachinePool //TODO: why is it in cluster-api for machines?
-	AWSCluster     *infrav1.AWSCluster       // TODO: This should be AWSManagedCluster in the future
+	MachinePool    *expclusterv1.MachinePool
+	AWSCluster     *infrav1.AWSCluster // TODO: This should be AWSManagedCluster in the future
 	AWSMachinePool *expinfrav1.AWSMachinePool
 }
 

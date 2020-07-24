@@ -348,7 +348,7 @@ func (r *AWSMachinePoolReconciler) findASG(machinePoolScope *scope.MachinePoolSc
 	machinePoolScope.Info("Finding ASG")
 
 	// Query the instance using tags.
-	asg, err := asgsvc.GetAsgByName(machinePoolScope)
+	asg, err := asgsvc.GetASGByName(machinePoolScope)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to query AWSMachinePool by name")
 	}
