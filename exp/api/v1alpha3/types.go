@@ -42,8 +42,8 @@ type NetworkInterface struct {
 // AwsLaunchTemplate defines the desired state of AWSLaunchTemplate
 type AWSLaunchTemplate struct {
 	// all the things needed for a launch template
-	ID   string `json:"id,string"`
-	Name string `json:"name,string"`
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
 
 	IamInstanceProfile  string               `json:"iamInstanceProfile,omitempty"`
 	BlockDeviceMappings []BlockDeviceMapping `json:"blockDeviceMappings,omitempty"`
@@ -100,6 +100,7 @@ type Tags map[string]string
 // AutoScalingGroup describes an AWS autoscaling group.
 type AutoScalingGroup struct {
 	// The tags associated with the instance.
+	ID              string            `json:"id,omitempty"`
 	Tags            map[string]string `json:"tags,omitempty"`
 	Name            string            `json:"name,omitempty"`
 	DesiredCapacity int64             `json:"desiredCapacity,omitempty"`
@@ -110,7 +111,8 @@ type AutoScalingGroup struct {
 	PlacementGroup    string   `json:"placementGroup,omitempty"`
 	VPCZoneIdentifier []string `json:"vpcZoneIdentifier,omitempty"`
 
-	Status ASGStatus
+	Status    ASGStatus
+	Instances []infrav1.Instance `json:"instances,omitempty"`
 }
 
 // ASGStatus is a status string returned by the autoscaling API
