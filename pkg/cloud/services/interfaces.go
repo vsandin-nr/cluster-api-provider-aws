@@ -22,12 +22,13 @@ import (
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/scope"
 )
 
-// ASGMachineInterface encapsulates the methods exposed to the machinepool
+// ASGInterface encapsulates the methods exposed to the machinepool
 // actuator
-type ASGMachineInterface interface {
+type ASGInterface interface {
 	AsgIfExists(id *string) (*expinfrav1.AutoScalingGroup, error)
 	GetAsgByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error)
 	CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error)
+	DeleteASGAndWait(id string) error
 }
 
 // EC2MachineInterface encapsulates the methods exposed to the machine
@@ -48,6 +49,7 @@ type EC2MachineInterface interface {
 
 	GetLaunchTemplate(name string) (*expinfrav1.AWSLaunchTemplate, error)
 	CreateLaunchTemplate(scope *scope.MachinePoolScope, userData []byte) (*expinfrav1.AWSLaunchTemplate, error)
+	DeleteLaunchTemplate(id string) error
 }
 
 // SecretsManagerInterface encapsulated the methods exposed to the
