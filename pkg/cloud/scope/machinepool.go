@@ -86,10 +86,17 @@ func NewMachinePoolScope(params MachinePoolScopeParams) (*MachinePoolScope, erro
 		params.Logger = klogr.New()
 	}
 
+	helper, err := patch.NewHelper(params.AWSMachinePool, params.Client)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to init patch helper")
+	}
+
 	return &MachinePoolScope{
-		Logger: params.Logger,
-		client: params.Client,
-		// Cluster:        params.Cluster,
+		Logger:      params.Logger,
+		client:      params.Client,
+		patchHelper: helper,
+
+		Cluster:        params.Cluster,
 		MachinePool:    params.MachinePool,
 		AWSCluster:     params.AWSCluster,
 		AWSMachinePool: params.AWSMachinePool,
@@ -139,4 +146,21 @@ func (m *MachinePoolScope) AdditionalTags() infrav1.Tags {
 	tags.Merge(m.AWSMachinePool.Spec.AdditionalTags)
 
 	return tags
+}
+
+// PatchObject persists the machinepool spec and status.
+func (m *MachinePoolScope) PatchObject() error {
+	return m.patchHelper.Patch(
+		context.TODO(),
+		m.AWSMachinePool,
+		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
+			infrav1.InstanceReadyCondition,
+			infrav1.SecurityGroupsReadyCondition,
+			infrav1.ELBAttachedCondition,
+		}})
+}
+
+// Close the MachinePoolScope by updating the machinepool spec, machine status.
+func (m *MachinePoolScope) Close() error {
+	return m.PatchObject()
 }

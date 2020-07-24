@@ -75,7 +75,7 @@ func (r *AWSMachinePoolReconciler) getEC2Service(scope *scope.ClusterScope) serv
 // +kubebuilder:rbac:groups="",resources=secrets;,verbs=get;list;watch
 
 // Reconcile TODO: add comment bc exported
-func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr error) {
 	ctx := context.TODO()
 	logger := r.Log.WithValues("namespace", req.Namespace, "awsMachinePool", req.Name)
 
@@ -145,7 +145,14 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
 	}
 
-	// todo: defer conditions + machinePoolScope.Close()
+	// Always close the scope so we can persist changes
+	defer func() {
+		// todo: conditions
+
+		if err := machinePoolScope.Close(); err != nil && reterr == nil {
+			reterr = err
+		}
+	}()
 
 	if !awsMachinePool.ObjectMeta.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(machinePoolScope, clusterScope)
@@ -167,9 +174,13 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 	// todo: check for failure state, return early
 
 	// If the AWSMachinepool doesn't have our finalizer, add it
-	controllerutil.AddFinalizer(machinePoolScope.AWSMachinePool, infrav1.MachineFinalizer)
+	controllerutil.AddFinalizer(machinePoolScope.AWSMachinePool, expinfrav1.MachinePoolFinalizer)
 
-	// todo: implement machinePoolScope.PatchObject for quickly registering the finalizer
+	// Register finalizer immediately to avoid orphaning AWS resources
+	if err := machinePoolScope.PatchObject(); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// todo: check cluster InfrastructureReady
 
 	// Make sure bootstrap data is available and populated
