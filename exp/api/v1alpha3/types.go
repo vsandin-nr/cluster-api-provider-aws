@@ -45,15 +45,18 @@ type AWSLaunchTemplate struct {
 	ID   string `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`
 
-	IamInstanceProfile  string               `json:"iamInstanceProfile,omitempty"`
-	BlockDeviceMappings []BlockDeviceMapping `json:"blockDeviceMappings,omitempty"`
-	NetworkInterfaces   []NetworkInterface   `json:"networkInterfaces,omitempty"`
+	IamInstanceProfile string             `json:"iamInstanceProfile,omitempty"`
+	NetworkInterfaces  []NetworkInterface `json:"networkInterfaces,omitempty"`
 
 	// todo: use a helper
 	AMI infrav1.AWSResourceReference `json:"ami,omitempty"`
 
 	// InstanceType is the type of instance to create. Example: m4.xlarge
 	InstanceType string `json:"instanceType,omitempty"`
+
+	// RootVolume encapsulates the configuration options for the root volume
+	// +optional
+	RootVolume *infrav1.RootVolume `json:"rootVolume,omitempty"`
 
 	// SSHKeyName is the name of the ssh key to attach to the instance. Valid values are empty string (do not use SSH keys), a valid SSH key name, or omitted (use the default SSH key name)
 	// +optional

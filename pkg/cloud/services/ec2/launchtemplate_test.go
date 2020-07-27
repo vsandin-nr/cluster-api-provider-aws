@@ -132,16 +132,6 @@ func TestService_SDKToLaunchTemplate(t *testing.T) {
 				IamInstanceProfile: "foo-profile",
 				SSHKeyName:         aws.String("foo-keyname"),
 				VersionNumber:      aws.Int64(1),
-				BlockDeviceMappings: []expinfrav1.BlockDeviceMapping{
-					{
-						DeviceName: "foo-device",
-						Ebs: expinfrav1.EBS{
-							Encrypted:  true,
-							VolumeSize: 16,
-							VolumeType: "cool",
-						},
-					},
-				},
 				NetworkInterfaces: []expinfrav1.NetworkInterface{
 					{
 						DeviceIndex: 1,

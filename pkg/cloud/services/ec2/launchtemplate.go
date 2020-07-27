@@ -117,14 +117,50 @@ func (s *Service) CreateLaunchTemplateVersion(scope *scope.MachinePoolScope, use
 }
 
 func (s *Service) createLaunchTemplateData(scope *scope.MachinePoolScope, userData []byte) (*ec2.RequestLaunchTemplateData, error) {
+	lt := scope.AWSMachinePool.Spec.AWSLaunchTemplate
+
 	data := &ec2.RequestLaunchTemplateData{
-		ImageId:      scope.AWSMachinePool.Spec.AWSLaunchTemplate.AMI.ID,
-		InstanceType: aws.String(scope.AWSMachinePool.Spec.AWSLaunchTemplate.InstanceType),
+		ImageId:      lt.AMI.ID,
+		InstanceType: aws.String(lt.InstanceType),
 		IamInstanceProfile: &ec2.LaunchTemplateIamInstanceProfileSpecificationRequest{
-			Name: aws.String(scope.AWSMachinePool.Spec.AWSLaunchTemplate.IamInstanceProfile),
+			Name: aws.String(lt.IamInstanceProfile),
 		},
-		KeyName:  scope.AWSMachinePool.Spec.AWSLaunchTemplate.SSHKeyName,
+		KeyName:  lt.SSHKeyName,
 		UserData: pointer.StringPtr(base64.StdEncoding.EncodeToString(userData)),
+	}
+
+	// Set up root volume
+	if lt.RootVolume != nil {
+		rootDeviceName, err := s.checkRootVolume(lt.RootVolume, *lt.AMI.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		ebsRootDevice := &ec2.LaunchTemplateEbsBlockDeviceRequest{
+			DeleteOnTermination: aws.Bool(true),
+			VolumeSize:          aws.Int64(lt.RootVolume.Size),
+			Encrypted:           aws.Bool(lt.RootVolume.Encrypted),
+		}
+
+		if lt.RootVolume.IOPS != 0 {
+			ebsRootDevice.Iops = aws.Int64(lt.RootVolume.IOPS)
+		}
+
+		if lt.RootVolume.EncryptionKey != "" {
+			ebsRootDevice.Encrypted = aws.Bool(true)
+			ebsRootDevice.KmsKeyId = aws.String(lt.RootVolume.EncryptionKey)
+		}
+
+		if lt.RootVolume.Type != "" {
+			ebsRootDevice.VolumeType = aws.String(lt.RootVolume.Type)
+		}
+
+		data.BlockDeviceMappings = []*ec2.LaunchTemplateBlockDeviceMappingRequest{
+			{
+				DeviceName: rootDeviceName,
+				Ebs:        ebsRootDevice,
+			},
+		}
 	}
 
 	additionalTags := scope.AdditionalTags()
@@ -206,18 +242,6 @@ func (s *Service) SDKToLaunchTemplate(d *ec2.LaunchTemplateVersion) (*expinfrav1
 		if len(split) > 1 && split[1] != "" {
 			i.IamInstanceProfile = split[1]
 		}
-	}
-
-	for _, bdm := range v.BlockDeviceMappings {
-		tmp := &expinfrav1.BlockDeviceMapping{
-			DeviceName: *bdm.DeviceName,
-			Ebs: expinfrav1.EBS{
-				Encrypted:  *bdm.Ebs.Encrypted,
-				VolumeSize: *bdm.Ebs.VolumeSize,
-				VolumeType: *bdm.Ebs.VolumeType,
-			},
-		}
-		i.BlockDeviceMappings = append(i.BlockDeviceMappings, *tmp)
 	}
 
 	for _, ni := range v.NetworkInterfaces {
