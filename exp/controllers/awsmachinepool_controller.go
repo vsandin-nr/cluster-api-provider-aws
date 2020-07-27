@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2020 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ func (r *AWSMachinePoolReconciler) getEC2Service(scope *scope.ClusterScope) serv
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups="",resources=secrets;,verbs=get;list;watch
 
-// Reconcile TODO: add comment bc exported
+// Reconcile is the reconciliation loop for AWSMachinePool
 func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr error) {
 	ctx := context.TODO()
 	logger := r.Log.WithValues("namespace", req.Namespace, "awsMachinePool", req.Name)
@@ -148,7 +148,6 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, r
 		return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
 	}
 
-	// todo: defer conditions + machinePoolScope.Close()
 	// Always close the scope when exiting this function so we can persist any AWSMachine changes.
 	defer func() {
 		// set Ready condition before AWSMachine is patched
@@ -231,7 +230,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 	}
 	if asg == nil {
 		// Create new ASG
-		asg, err = r.createPool(machinePoolScope, clusterScope)
+		_, err = r.createPool(machinePoolScope, clusterScope)
 		if err != nil {
 			conditions.MarkFalse(machinePoolScope.AWSMachinePool, expinfrav1.ASGReadyCondition, expinfrav1.ASGProvisionFailedReason, clusterv1.ConditionSeverityError, err.Error())
 			return ctrl.Result{}, err
@@ -240,7 +239,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 	}
 
 	// Make sure Spec.ProviderID is always set.
-	machinePoolScope.AWSMachinePool.Spec.ProviderID = fmt.Sprintf("%s", asg.ID)
+	machinePoolScope.AWSMachinePool.Spec.ProviderID = asg.ID
 	providerIDList := make([]string, len(asg.Instances))
 
 	for i, ec2 := range asg.Instances {
@@ -350,7 +349,7 @@ func (r *AWSMachinePoolReconciler) findASG(machinePoolScope *scope.MachinePoolSc
 	machinePoolScope.Info("Finding ASG")
 
 	// Query the instance using tags.
-	asg, err := asgsvc.GetAsgByName(machinePoolScope)
+	asg, err := asgsvc.GetASGByName(machinePoolScope)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to query AWSMachinePool by name")
 	}

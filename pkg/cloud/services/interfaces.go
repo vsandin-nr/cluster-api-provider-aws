@@ -25,8 +25,8 @@ import (
 // ASGInterface encapsulates the methods exposed to the machinepool
 // actuator
 type ASGInterface interface {
-	AsgIfExists(id *string) (*expinfrav1.AutoScalingGroup, error)
-	GetAsgByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error)
+	ASGIfExists(id *string) (*expinfrav1.AutoScalingGroup, error)
+	GetASGByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error)
 	CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error)
 	UpdateASG(scope *scope.MachinePoolScope) error
 	DeleteASGAndWait(id string) error
