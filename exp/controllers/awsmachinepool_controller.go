@@ -214,22 +214,10 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 		return ctrl.Result{}, nil
 	}
 
-	userData, err := machinePoolScope.GetRawBootstrapData()
-	if err != nil {
-		r.Recorder.Eventf(machinePoolScope.AWSMachinePool, corev1.EventTypeWarning, "FailedGetBootstrapData", err.Error())
-	}
-	machinePoolScope.Info("checking for existing launch template")
-
-	ec2svc := r.getEC2Service(clusterScope)
-	launchTemplate, err := ec2svc.GetLaunchTemplate(machinePoolScope.Name())
-	if err != nil {
+	if err := r.reconcileLaunchTemplate(machinePoolScope, clusterScope); err != nil {
+		r.Recorder.Eventf(machinePoolScope.AWSMachinePool, corev1.EventTypeWarning, "FailedLaunchTemplateReconcile", "Failed to reconcile launch template: %v", err)
+		machinePoolScope.Error(err, "failed to reconcile launch template")
 		return ctrl.Result{}, err
-	}
-	if launchTemplate == nil {
-		machinePoolScope.Info("no existing launch template found, creating")
-		if _, err := ec2svc.CreateLaunchTemplate(machinePoolScope, userData); err != nil {
-			return ctrl.Result{}, err
-		}
 	}
 
 	// Initialize ASG client
@@ -242,7 +230,6 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 		return ctrl.Result{}, err
 	}
 	if asg == nil {
-
 		// Create new ASG
 		asg, err = r.createPool(machinePoolScope, clusterScope)
 		if err != nil {
@@ -273,8 +260,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 	// Set state
 	// Reconcile AWSMachinePool State
 	//Handle switch case instance.State{}
-	return ctrl.Result{}, nil
-
+	return r.updatePool(machinePoolScope, clusterScope, asg)
 }
 
 func (r *AWSMachinePoolReconciler) reconcileDelete(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) (ctrl.Result, error) {
@@ -330,8 +316,19 @@ func (r *AWSMachinePoolReconciler) reconcileDelete(machinePoolScope *scope.Machi
 	return ctrl.Result{}, nil
 }
 
-func (r *AWSMachinePoolReconciler) updatePool(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) (ctrl.Result, error) {
-	clusterScope.Info("Handling things")
+func (r *AWSMachinePoolReconciler) updatePool(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope, existingASG *expinfrav1.AutoScalingGroup) (ctrl.Result, error) {
+	machinePoolScope.Info("checking if ASG needs updates")
+
+	if asgNeedsUpdates(machinePoolScope, existingASG) {
+		machinePoolScope.Info("updating ASG")
+		asgSvc := r.getASGService(clusterScope)
+
+		if err := asgSvc.UpdateASG(machinePoolScope); err != nil {
+			r.Recorder.Eventf(machinePoolScope.AWSMachinePool, corev1.EventTypeWarning, "FailedUpdate", "Failed to update ASG: %v", err)
+			return ctrl.Result{}, errors.Wrap(err, "unable to update ASG")
+		}
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -359,6 +356,59 @@ func (r *AWSMachinePoolReconciler) findASG(machinePoolScope *scope.MachinePoolSc
 	}
 
 	return asg, nil
+}
+
+func (r *AWSMachinePoolReconciler) reconcileLaunchTemplate(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) error {
+	userData, err := machinePoolScope.GetRawBootstrapData()
+	if err != nil {
+		r.Recorder.Eventf(machinePoolScope.AWSMachinePool, corev1.EventTypeWarning, "FailedGetBootstrapData", err.Error())
+	}
+	machinePoolScope.Info("checking for existing launch template")
+
+	ec2svc := r.getEC2Service(clusterScope)
+	launchTemplate, err := ec2svc.GetLaunchTemplate(machinePoolScope.Name())
+	if err != nil {
+		return err
+	}
+	if launchTemplate == nil {
+		machinePoolScope.Info("no existing launch template found, creating")
+		if _, err := ec2svc.CreateLaunchTemplate(machinePoolScope, userData); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	if expinfrav1.LaunchTemplateNeedsUpdate(&machinePoolScope.AWSMachinePool.Spec.AWSLaunchTemplate, launchTemplate) {
+		machinePoolScope.Info("creating new version for launch template", "existing", launchTemplate, "incoming", machinePoolScope.AWSMachinePool.Spec.AWSLaunchTemplate)
+		if _, err := ec2svc.CreateLaunchTemplateVersion(machinePoolScope, userData); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// asgNeedsUpdates compares incoming AWSMachinePool and compares against existing ASG
+func asgNeedsUpdates(machinePoolScope *scope.MachinePoolScope, existingASG *expinfrav1.AutoScalingGroup) bool {
+	if *machinePoolScope.MachinePool.Spec.Replicas != existingASG.DesiredCapacity {
+		machinePoolScope.Info("desired mismatch", "incoming", *machinePoolScope.MachinePool.Spec.Replicas, "existing", existingASG.DesiredCapacity)
+		return true
+	}
+
+	if machinePoolScope.AWSMachinePool.Spec.MaxSize != existingASG.MaxSize {
+		machinePoolScope.Info("max mismatch", "incoming", machinePoolScope.AWSMachinePool.Spec.MaxSize, "existing", existingASG.MaxSize)
+		return true
+	}
+
+	if machinePoolScope.AWSMachinePool.Spec.MinSize != existingASG.MinSize {
+		machinePoolScope.Info("min mismatch", "incoming", machinePoolScope.AWSMachinePool.Spec.MinSize, "existing", existingASG.MinSize)
+		return true
+	}
+
+	// todo subnet diff
+
+	return false
 }
 
 // getOwnerMachinePool returns the MachinePool object owning the current resource.

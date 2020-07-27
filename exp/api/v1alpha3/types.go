@@ -100,19 +100,21 @@ type Tags map[string]string
 // AutoScalingGroup describes an AWS autoscaling group.
 type AutoScalingGroup struct {
 	// The tags associated with the instance.
-	ID              string            `json:"id,omitempty"`
-	Tags            map[string]string `json:"tags,omitempty"`
-	Name            string            `json:"name,omitempty"`
-	DesiredCapacity int64             `json:"desiredCapacity,omitempty"`
-	// LaunchTemplateSpecification *autoscaling.LaunchTemplateSpecification
-	MaxSize int64 `json:"maxSize,omitempty"`
-	MinSize int64 `json:"minSize,omitempty"`
-	// MixedInstancesPolicy        *autoscaling.MixedInstancesPolicy
-	PlacementGroup    string   `json:"placementGroup,omitempty"`
-	VPCZoneIdentifier []string `json:"vpcZoneIdentifier,omitempty"`
+	ID                string            `json:"id,omitempty"`
+	Tags              map[string]string `json:"tags,omitempty"`
+	Name              string            `json:"name,omitempty"`
+	DesiredCapacity   int32             `json:"desiredCapacity,omitempty"`
+	MaxSize           int32             `json:"maxSize,omitempty"`
+	MinSize           int32             `json:"minSize,omitempty"`
+	PlacementGroup    string            `json:"placementGroup,omitempty"`
+	VPCZoneIdentifier []string          `json:"vpcZoneIdentifier,omitempty"`
 
 	Status    ASGStatus
 	Instances []infrav1.Instance `json:"instances,omitempty"`
+
+	// todo
+	// MixedInstancesPolicy        *autoscaling.MixedInstancesPolicy
+	// LaunchTemplateSpecification *autoscaling.LaunchTemplateSpecification
 }
 
 // ASGStatus is a status string returned by the autoscaling API
@@ -122,3 +124,20 @@ var (
 	// ASGStatusDeleteInProgress is the string representing an ASG that is currently deleting
 	ASGStatusDeleteInProgress = ASGStatus("Delete in progress")
 )
+
+// launchTemplateNeedsUpdate checks if a new launch template version is needed
+func LaunchTemplateNeedsUpdate(incoming *AWSLaunchTemplate, existing *AWSLaunchTemplate) bool {
+	if incoming.IamInstanceProfile != existing.IamInstanceProfile {
+		return true
+	}
+
+	if incoming.InstanceType != existing.InstanceType {
+		return true
+	}
+
+	// todo: security groups
+	// todo: block devices
+	// todo: more fields
+
+	return false
+}
