@@ -27,6 +27,7 @@ import (
 	"k8s.io/utils/pointer"
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/awserrors"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/scope"
 )
 
@@ -40,17 +41,11 @@ func (s *Service) GetLaunchTemplate(name string) (*expinfrav1.AWSLaunchTemplate,
 	}
 
 	out, err := s.EC2Client.DescribeLaunchTemplateVersions(input)
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				s.scope.Info("", "aerr", aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			s.scope.Info("", "error", err.Error())
-		}
+	switch {
+	case awserrors.IsNotFound(err):
+		return nil, nil
+	case err != nil:
+		s.scope.Info("", "aerr", err.Error())
 	}
 
 	for _, version := range out.LaunchTemplateVersions {
