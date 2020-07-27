@@ -161,64 +161,15 @@ spec:
                     format: int64
                     type: integer
                 type: object
-              defaultCooldown:
-                format: int32
-                type: integer
               desiredCapacity:
                 format: int32
                 type: integer
-              healthCheckGracePeriod:
-                type: integer
-              healthCheckType:
-                type: string
               maxSize:
                 format: int32
                 type: integer
               minSize:
                 format: int32
                 type: integer
-              mixedInstancesPolicy:
-                description: MixedInstancesPolicy from describe-auto-scaling-groups
-                properties:
-                  instancesDistribution:
-                    description: InstancesDistribution from describe-auto-scaling-groups
-                    properties:
-                      onDemandAllocationStrategy:
-                        type: string
-                      onDemandBaseCapacity:
-                        type: integer
-                      onDemandPercentageAboveBaseCapacity:
-                        type: integer
-                      spotAllocationStrategy:
-                        type: string
-                    type: object
-                  launchTemplate:
-                    description: LaunchTemplate from describe-auto-scaling-groups
-                    properties:
-                      launchTemplateSpecification:
-                        description: LaunchTemplateSpecification from describe-auto-scaling-groups
-                        properties:
-                          launchTemplateId:
-                            type: string
-                          launchTemplateName:
-                            type: string
-                          version:
-                            type: string
-                        type: object
-                      overrides:
-                        items:
-                          description: Overrides from describe-auto-scaling-groups
-                          properties:
-                            InstanceType:
-                              type: string
-                          required:
-                          - InstanceType
-                          type: object
-                        type: array
-                    type: object
-                type: object
-              newInstancesProtectedFromScaleIn:
-                type: boolean
               providerID:
                 type: string
               providerIDList:
@@ -226,18 +177,10 @@ spec:
                 items:
                   type: string
                 type: array
-              serviceLinkedRoleARN:
-                type: string
               subnets:
                 items:
                   type: string
                 type: array
-              terminationPolicies:
-                items:
-                  type: string
-                type: array
-              vpcZoneIdentifier:
-                type: string
             type: object
           status:
             description: AWSMachinePoolStatus defines the observed state of AWSMachinePool

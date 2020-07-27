@@ -28,22 +28,15 @@ const (
 
 // AWSMachinePoolSpec defines the desired state of AWSMachinePool
 type AWSMachinePoolSpec struct {
-	ProviderID                       string               `json:"providerID,omitempty"` //TODO: is this needed?
-	AutoScalingGroupName             string               `json:"autoScalingGroupName,omitempty"`
-	MixedInstancesPolicy             MixedInstancesPolicy `json:"mixedInstancesPolicy,omitempty"`
-	MinSize                          int32                `json:"minSize,omitempty"`
-	MaxSize                          int32                `json:"maxSize,omitempty"`
-	DesiredCapacity                  int32                `json:"desiredCapacity,omitempty"`
-	DefaultCooldown                  int32                `json:"defaultCooldown,omitempty"`
-	AvailabilityZones                []string             `json:"availabilityZones,omitempty"`
-	HealthCheckType                  string               `json:"healthCheckType,omitempty"`
-	HealthCheckGracePeriod           int                  `json:"healthCheckGracePeriod,omitempty"`
-	VPCZoneIdentifier                string               `json:"vpcZoneIdentifier,omitempty"`
-	AdditionalTags                   infrav1.Tags         `json:"additionalTags,omitempty"`
-	TerminationPolicies              []string             `json:"terminationPolicies,omitempty"`
-	NewInstancesProtectedFromScaleIn bool                 `json:"newInstancesProtectedFromScaleIn,omitempty"`
-	ServiceLinkedRoleARN             string               `json:"serviceLinkedRoleARN,omitempty"`
-	AWSLaunchTemplate                AWSLaunchTemplate    `json:"awsLaunchTemplate,omitempty"`
+	ProviderID           string            `json:"providerID,omitempty"` //TODO: is this needed?
+	AutoScalingGroupName string            `json:"autoScalingGroupName,omitempty"`
+	MinSize              int32             `json:"minSize,omitempty"`
+	MaxSize              int32             `json:"maxSize,omitempty"`
+	DesiredCapacity      int32             `json:"desiredCapacity,omitempty"`
+	AvailabilityZones    []string          `json:"availabilityZones,omitempty"`
+	Subnets              []string          `json:"subnets,omitempty"`
+	AdditionalTags       infrav1.Tags      `json:"additionalTags,omitempty"`
+	AWSLaunchTemplate    AWSLaunchTemplate `json:"awsLaunchTemplate,omitempty"`
 
 	// ProviderIDList are the identification IDs of machine instances provided by the provider.
 	// This field must match the provider IDs as seen on the node objects corresponding to a machine pool's machine instances.
@@ -55,7 +48,6 @@ type AWSMachinePoolSpec struct {
 	// at the cluster level or in the actuator.
 	// +optional
 	AdditionalSecurityGroups []infrav1.AWSResourceReference `json:"additionalSecurityGroups,omitempty"`
-	Subnets                  []string                       `json:"subnets,omitempty"`
 }
 
 // AWSMachinePoolStatus defines the observed state of AWSMachinePool
