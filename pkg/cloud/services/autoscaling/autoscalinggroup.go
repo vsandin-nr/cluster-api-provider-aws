@@ -71,8 +71,8 @@ func (s *Service) SDKToAutoScalingGroup(v *autoscaling.Group) (*expinfrav1.AutoS
 // 	return i, nil
 // }
 
-// AsgIfExists returns the existing autoscaling group or nothing if it doesn't exist.
-func (s *Service) AsgIfExists(name *string) (*expinfrav1.AutoScalingGroup, error) {
+// ASGIfExists returns the existing autoscaling group or nothing if it doesn't exist.
+func (s *Service) ASGIfExists(name *string) (*expinfrav1.AutoScalingGroup, error) {
 	if name == nil {
 		s.scope.Info("Autoscaling Group does not have a name")
 		return nil, nil
@@ -97,8 +97,8 @@ func (s *Service) AsgIfExists(name *string) (*expinfrav1.AutoScalingGroup, error
 
 }
 
-// GetAsgByName returns the existing ASG or nothing if it doesn't exist.
-func (s *Service) GetAsgByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error) {
+// GetASGByName returns the existing ASG or nothing if it doesn't exist.
+func (s *Service) GetASGByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error) {
 	s.scope.Info("Looking for existing machine instance by tags")
 
 	input := &autoscaling.DescribeAutoScalingGroupsInput{
@@ -129,7 +129,7 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 	input := &expinfrav1.AutoScalingGroup{
 		Name:              scope.Name(),
 		DesiredCapacity:   *scope.MachinePool.Spec.Replicas,
-		MaxSize:           int32(scope.AWSMachinePool.Spec.MaxSize),
+		MaxSize:           scope.AWSMachinePool.Spec.MaxSize,
 		MinSize:           scope.AWSMachinePool.Spec.MinSize,
 		VPCZoneIdentifier: scope.AWSMachinePool.Spec.Subnets,
 	}
