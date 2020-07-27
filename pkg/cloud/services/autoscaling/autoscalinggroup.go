@@ -129,7 +129,7 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 	input := &expinfrav1.AutoScalingGroup{
 		Name:              scope.Name(),
 		DesiredCapacity:   *scope.MachinePool.Spec.Replicas,
-		MaxSize:           int32(scope.AWSMachinePool.Spec.MaxSize),
+		MaxSize:           scope.AWSMachinePool.Spec.MaxSize,
 		MinSize:           scope.AWSMachinePool.Spec.MinSize,
 		VPCZoneIdentifier: scope.AWSMachinePool.Spec.Subnets,
 	}

@@ -74,10 +74,7 @@ func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData [
 	result, err := s.EC2Client.CreateLaunchTemplate(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				s.scope.Info("", "aerr", aerr.Error())
-			}
+			s.scope.Info("", "aerr", aerr.Error())
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
@@ -106,10 +103,7 @@ func (s *Service) CreateLaunchTemplateVersion(scope *scope.MachinePoolScope, use
 	result, err := s.EC2Client.CreateLaunchTemplateVersion(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				s.scope.Info("", "aerr", aerr.Error())
-			}
+			s.scope.Info("", "aerr", aerr.Error())
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.

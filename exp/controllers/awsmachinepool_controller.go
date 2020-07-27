@@ -230,7 +230,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 	}
 	if asg == nil {
 		// Create new ASG
-		asg, err = r.createPool(machinePoolScope, clusterScope)
+		_, err = r.createPool(machinePoolScope, clusterScope)
 		if err != nil {
 			conditions.MarkFalse(machinePoolScope.AWSMachinePool, expinfrav1.ASGReadyCondition, expinfrav1.ASGProvisionFailedReason, clusterv1.ConditionSeverityError, err.Error())
 			return ctrl.Result{}, err
@@ -239,7 +239,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 	}
 
 	// Make sure Spec.ProviderID is always set.
-	machinePoolScope.AWSMachinePool.Spec.ProviderID = fmt.Sprintf("%s", asg.ID)
+	machinePoolScope.AWSMachinePool.Spec.ProviderID = asg.ID
 	providerIDList := make([]string, len(asg.Instances))
 
 	for i, ec2 := range asg.Instances {
