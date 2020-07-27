@@ -66,17 +66,76 @@ func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData [
 	s.scope.Info("UserData", "UserData", string(userData))
 	s.scope.Info(scope.Name())
 
+	launchTemplateData, err := s.createLaunchTemplateData(scope, userData)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to form launch template data")
+	}
+
 	input := &ec2.CreateLaunchTemplateInput{
-		LaunchTemplateData: &ec2.RequestLaunchTemplateData{
-			ImageId:      scope.AWSMachinePool.Spec.AWSLaunchTemplate.AMI.ID,
-			InstanceType: aws.String(scope.AWSMachinePool.Spec.AWSLaunchTemplate.InstanceType),
-			IamInstanceProfile: &ec2.LaunchTemplateIamInstanceProfileSpecificationRequest{
-				Name: aws.String(scope.AWSMachinePool.Spec.AWSLaunchTemplate.IamInstanceProfile),
-			},
-			KeyName:  scope.AWSMachinePool.Spec.AWSLaunchTemplate.SSHKeyName,
-			UserData: pointer.StringPtr(base64.StdEncoding.EncodeToString(userData)),
-		},
+		LaunchTemplateData: launchTemplateData,
 		LaunchTemplateName: aws.String(scope.Name()),
+	}
+
+	result, err := s.EC2Client.CreateLaunchTemplate(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				s.scope.Info("", "aerr", aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			s.scope.Info("", "error", err.Error())
+		}
+	}
+
+	s.scope.Info("Got it", "result", result.LaunchTemplate.LaunchTemplateName)
+
+	return nil, nil
+}
+
+func (s *Service) CreateLaunchTemplateVersion(scope *scope.MachinePoolScope, userData []byte) (*expinfrav1.AWSLaunchTemplate, error) {
+	s.scope.V(2).Info("creating new launch template version", "machine-pool", scope.Name())
+
+	launchTemplateData, err := s.createLaunchTemplateData(scope, userData)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to form launch template data")
+	}
+
+	input := &ec2.CreateLaunchTemplateVersionInput{
+		LaunchTemplateData: launchTemplateData,
+		LaunchTemplateName: aws.String(scope.Name()),
+	}
+
+	result, err := s.EC2Client.CreateLaunchTemplateVersion(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				s.scope.Info("", "aerr", aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			s.scope.Info("", "error", err.Error())
+		}
+	}
+
+	s.scope.Info("launch template updated", "version", result.LaunchTemplateVersion.VersionNumber)
+
+	return nil, nil
+}
+
+func (s *Service) createLaunchTemplateData(scope *scope.MachinePoolScope, userData []byte) (*ec2.RequestLaunchTemplateData, error) {
+	data := &ec2.RequestLaunchTemplateData{
+		ImageId:      scope.AWSMachinePool.Spec.AWSLaunchTemplate.AMI.ID,
+		InstanceType: aws.String(scope.AWSMachinePool.Spec.AWSLaunchTemplate.InstanceType),
+		IamInstanceProfile: &ec2.LaunchTemplateIamInstanceProfileSpecificationRequest{
+			Name: aws.String(scope.AWSMachinePool.Spec.AWSLaunchTemplate.IamInstanceProfile),
+		},
+		KeyName:  scope.AWSMachinePool.Spec.AWSLaunchTemplate.SSHKeyName,
+		UserData: pointer.StringPtr(base64.StdEncoding.EncodeToString(userData)),
 	}
 
 	additionalTags := scope.AdditionalTags()
@@ -99,7 +158,7 @@ func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData [
 				Value: aws.String(value),
 			})
 		}
-		input.LaunchTemplateData.TagSpecifications = append(input.LaunchTemplateData.TagSpecifications, spec)
+		data.TagSpecifications = append(data.TagSpecifications, spec)
 	}
 
 	ids, err := s.GetCoreNodeSecurityGroups()
@@ -109,32 +168,16 @@ func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData [
 
 	for _, id := range ids {
 		s.scope.Info(id)
-		input.LaunchTemplateData.SecurityGroupIds = append(input.LaunchTemplateData.SecurityGroupIds, aws.String(id))
+		data.SecurityGroupIds = append(data.SecurityGroupIds, aws.String(id))
 	}
 
 	// add additional security groups as well
 	for _, additionalGroup := range scope.AWSMachinePool.Spec.AdditionalSecurityGroups {
-		input.LaunchTemplateData.SecurityGroupIds = append(input.LaunchTemplateData.SecurityGroupIds, additionalGroup.ID)
+		data.SecurityGroupIds = append(data.SecurityGroupIds, additionalGroup.ID)
 	}
-	s.scope.Info("Security Groups", "security groups", input.LaunchTemplateData.SecurityGroupIds)
+	s.scope.Info("Security Groups", "security groups", data.SecurityGroupIds)
 
-	result, err := s.EC2Client.CreateLaunchTemplate(input)
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				s.scope.Info("", "aerr", aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			s.scope.Info("", "error", err.Error())
-		}
-	}
-
-	s.scope.Info("Got it", "result", result.LaunchTemplate.LaunchTemplateName)
-
-	return nil, nil
+	return data, nil
 }
 
 // DeleteLaunchTemplate delete a launch template
@@ -162,9 +205,10 @@ func (s *Service) SDKToLaunchTemplate(d *ec2.LaunchTemplateVersion) (*expinfrav1
 		AMI: infrav1.AWSResourceReference{
 			ID: v.ImageId,
 		},
-		InstanceType:  aws.StringValue(v.InstanceType),
-		SSHKeyName:    v.KeyName,
-		VersionNumber: d.VersionNumber,
+		IamInstanceProfile: aws.StringValue(v.IamInstanceProfile.Name),
+		InstanceType:       aws.StringValue(v.InstanceType),
+		SSHKeyName:         v.KeyName,
+		VersionNumber:      d.VersionNumber,
 	}
 
 	// Extract IAM Instance Profile name from ARN
