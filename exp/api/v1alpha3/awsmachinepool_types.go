@@ -52,11 +52,20 @@ type AWSMachinePoolSpec struct {
 
 // AWSMachinePoolStatus defines the observed state of AWSMachinePool
 type AWSMachinePoolStatus struct {
+	// Ready is true when the provider resource is ready.
+	// +optional
+	Ready bool `json:"ready"`
+
+	// Replicas is the most recently observed number of replicas
+	// +optional
+	Replicas int32 `json:"replicas"`
+
 	AutoScalingGroupARN string               `json:"autoScalingGroupARN,omitempty"`
 	Conditions          clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:resource:path=awsmachinepools,scope=Namespaced,categories=cluster-api
 
 // AWSMachinePool is the Schema for the awsmachinepools API
