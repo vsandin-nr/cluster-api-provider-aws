@@ -31,10 +31,10 @@ type AWSMachinePoolSpec struct {
 	ProviderID                       string               `json:"providerID,omitempty"` //TODO: is this needed?
 	AutoScalingGroupName             string               `json:"autoScalingGroupName,omitempty"`
 	MixedInstancesPolicy             MixedInstancesPolicy `json:"mixedInstancesPolicy,omitempty"`
-	MinSize                          int                  `json:"minSize,omitempty"`
-	MaxSize                          int                  `json:"maxSize,omitempty"`
-	DesiredCapacity                  int                  `json:"desiredCapacity,omitempty"`
-	DefaultCooldown                  int                  `json:"defaultCooldown,omitempty"`
+	MinSize                          int32                `json:"minSize,omitempty"`
+	MaxSize                          int32                `json:"maxSize,omitempty"`
+	DesiredCapacity                  int32                `json:"desiredCapacity,omitempty"`
+	DefaultCooldown                  int32                `json:"defaultCooldown,omitempty"`
 	AvailabilityZones                []string             `json:"availabilityZones,omitempty"`
 	HealthCheckType                  string               `json:"healthCheckType,omitempty"`
 	HealthCheckGracePeriod           int                  `json:"healthCheckGracePeriod,omitempty"`

@@ -28,6 +28,7 @@ type ASGInterface interface {
 	AsgIfExists(id *string) (*expinfrav1.AutoScalingGroup, error)
 	GetAsgByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error)
 	CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error)
+	UpdateASG(scope *scope.MachinePoolScope) error
 	DeleteASGAndWait(id string) error
 }
 
@@ -49,6 +50,7 @@ type EC2MachineInterface interface {
 
 	GetLaunchTemplate(name string) (*expinfrav1.AWSLaunchTemplate, error)
 	CreateLaunchTemplate(scope *scope.MachinePoolScope, userData []byte) (*expinfrav1.AWSLaunchTemplate, error)
+	CreateLaunchTemplateVersion(scope *scope.MachinePoolScope, userData []byte) (*expinfrav1.AWSLaunchTemplate, error)
 	DeleteLaunchTemplate(id string) error
 }
 
