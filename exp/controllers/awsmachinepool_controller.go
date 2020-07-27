@@ -238,28 +238,25 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 		return ctrl.Result{}, nil
 	}
 
+	if err := r.updatePool(machinePoolScope, clusterScope, asg); err != nil {
+		return ctrl.Result{}, errors.Wrap(err, "error updating AWSMachinePool")
+	}
+
 	// Make sure Spec.ProviderID is always set.
 	machinePoolScope.AWSMachinePool.Spec.ProviderID = asg.ID
 	providerIDList := make([]string, len(asg.Instances))
 
 	for i, ec2 := range asg.Instances {
 		providerIDList[i] = fmt.Sprintf("aws:///%s/%s", ec2.AvailabilityZone, ec2.ID)
-		// if ec2.State == infrav1.InstanceStateRunning {
-		// 	readyCount++
-		// }
 	}
 
-	machinePoolScope.AWSMachinePool.Spec.ProviderIDList = providerIDList
-	// TODO: update awsmachinepool status
-	// machinePoolScope.AWSMachinePool.Status.ProvisioningState = &asg.State
-	// machinePoolScope.AWSMachinePool.Status.Replicas = int32(len(providerIDList))
 	machinePoolScope.SetAnnotation("cluster-api-provider-aws", "true")
 
-	// Get state of ASG
-	// Set state
-	// Reconcile AWSMachinePool State
-	//Handle switch case instance.State{}
-	return r.updatePool(machinePoolScope, clusterScope, asg)
+	machinePoolScope.AWSMachinePool.Spec.ProviderIDList = providerIDList
+	machinePoolScope.AWSMachinePool.Status.Replicas = int32(len(providerIDList))
+	machinePoolScope.AWSMachinePool.Status.Ready = true
+
+	return ctrl.Result{}, nil
 }
 
 func (r *AWSMachinePoolReconciler) reconcileDelete(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) (ctrl.Result, error) {
@@ -315,7 +312,7 @@ func (r *AWSMachinePoolReconciler) reconcileDelete(machinePoolScope *scope.Machi
 	return ctrl.Result{}, nil
 }
 
-func (r *AWSMachinePoolReconciler) updatePool(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope, existingASG *expinfrav1.AutoScalingGroup) (ctrl.Result, error) {
+func (r *AWSMachinePoolReconciler) updatePool(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope, existingASG *expinfrav1.AutoScalingGroup) error {
 	machinePoolScope.Info("checking if ASG needs updates")
 
 	if asgNeedsUpdates(machinePoolScope, existingASG) {
@@ -324,11 +321,11 @@ func (r *AWSMachinePoolReconciler) updatePool(machinePoolScope *scope.MachinePoo
 
 		if err := asgSvc.UpdateASG(machinePoolScope); err != nil {
 			r.Recorder.Eventf(machinePoolScope.AWSMachinePool, corev1.EventTypeWarning, "FailedUpdate", "Failed to update ASG: %v", err)
-			return ctrl.Result{}, errors.Wrap(err, "unable to update ASG")
+			return errors.Wrap(err, "unable to update ASG")
 		}
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 }
 
 func (r *AWSMachinePoolReconciler) createPool(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) (*expinfrav1.AutoScalingGroup, error) {
