@@ -416,19 +416,10 @@ func (s *Service) runInstance(role string, i *infrav1.Instance) (*infrav1.Instan
 		}
 	}
 
-	if i.RootVolume != nil { // nolint:nestif
-		rootDeviceName, err := s.getImageRootDevice(i.ImageID)
+	if i.RootVolume != nil {
+		rootDeviceName, err := s.checkRootVolume(i.RootVolume, i.ImageID)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get root volume from image %q", i.ImageID)
-		}
-
-		snapshotSize, err := s.getImageSnapshotSize(i.ImageID)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get root volume from image %q", i.ImageID)
-		}
-
-		if i.RootVolume.Size < *snapshotSize {
-			return nil, errors.Errorf("root volume size (%d) must be greater than or equal to snapshot size (%d)", i.RootVolume.Size, *snapshotSize)
+			return nil, err
 		}
 
 		ebsRootDevice := &ec2.EbsBlockDevice{
@@ -790,6 +781,26 @@ func (s *Service) DetachSecurityGroupsFromNetworkInterface(groups []string, inte
 		return errors.Wrapf(err, "failed to modify interface %q", interfaceID)
 	}
 	return nil
+}
+
+// checkRootVolume checks the input root volume options against the requested AMI's defaults
+// and returns the AMI's root device name
+func (s *Service) checkRootVolume(rootVolume *infrav1.RootVolume, imageID string) (*string, error) {
+	rootDeviceName, err := s.getImageRootDevice(imageID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get root volume from image %q", imageID)
+	}
+
+	snapshotSize, err := s.getImageSnapshotSize(imageID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get root volume from image %q", imageID)
+	}
+
+	if rootVolume.Size < *snapshotSize {
+		return nil, errors.Errorf("root volume size (%d) must be greater than or equal to snapshot size (%d)", rootVolume.Size, *snapshotSize)
+	}
+
+	return rootDeviceName, nil
 }
 
 // filterGroups filters a list for a string.

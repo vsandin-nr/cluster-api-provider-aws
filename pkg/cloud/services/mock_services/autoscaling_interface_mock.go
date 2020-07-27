@@ -50,19 +50,19 @@ func (m *MockASGInterface) EXPECT() *MockASGInterfaceMockRecorder {
 	return m.recorder
 }
 
-// AsgIfExists mocks base method
-func (m *MockASGInterface) AsgIfExists(arg0 *string) (*v1alpha3.AutoScalingGroup, error) {
+// ASGIfExists mocks base method
+func (m *MockASGInterface) ASGIfExists(arg0 *string) (*v1alpha3.AutoScalingGroup, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AsgIfExists", arg0)
+	ret := m.ctrl.Call(m, "ASGIfExists", arg0)
 	ret0, _ := ret[0].(*v1alpha3.AutoScalingGroup)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AsgIfExists indicates an expected call of AsgIfExists
-func (mr *MockASGInterfaceMockRecorder) AsgIfExists(arg0 interface{}) *gomock.Call {
+// ASGIfExists indicates an expected call of ASGIfExists
+func (mr *MockASGInterfaceMockRecorder) ASGIfExists(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AsgIfExists", reflect.TypeOf((*MockASGInterface)(nil).AsgIfExists), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ASGIfExists", reflect.TypeOf((*MockASGInterface)(nil).ASGIfExists), arg0)
 }
 
 // CreateASG mocks base method
@@ -94,19 +94,19 @@ func (mr *MockASGInterfaceMockRecorder) DeleteASGAndWait(arg0 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteASGAndWait", reflect.TypeOf((*MockASGInterface)(nil).DeleteASGAndWait), arg0)
 }
 
-// GetAsgByName mocks base method
-func (m *MockASGInterface) GetAsgByName(arg0 *scope.MachinePoolScope) (*v1alpha3.AutoScalingGroup, error) {
+// GetASGByName mocks base method
+func (m *MockASGInterface) GetASGByName(arg0 *scope.MachinePoolScope) (*v1alpha3.AutoScalingGroup, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAsgByName", arg0)
+	ret := m.ctrl.Call(m, "GetASGByName", arg0)
 	ret0, _ := ret[0].(*v1alpha3.AutoScalingGroup)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetAsgByName indicates an expected call of GetAsgByName
-func (mr *MockASGInterfaceMockRecorder) GetAsgByName(arg0 interface{}) *gomock.Call {
+// GetASGByName indicates an expected call of GetASGByName
+func (mr *MockASGInterfaceMockRecorder) GetASGByName(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAsgByName", reflect.TypeOf((*MockASGInterface)(nil).GetAsgByName), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetASGByName", reflect.TypeOf((*MockASGInterface)(nil).GetASGByName), arg0)
 }
 
 // UpdateASG mocks base method
