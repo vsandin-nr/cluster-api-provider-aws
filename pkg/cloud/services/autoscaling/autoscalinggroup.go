@@ -127,11 +127,11 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 	s.scope.Info("Creating an autoscaling group for a machine pool")
 
 	input := &expinfrav1.AutoScalingGroup{
-		Name:              scope.Name(),
-		DesiredCapacity:   *scope.MachinePool.Spec.Replicas,
-		MaxSize:           scope.AWSMachinePool.Spec.MaxSize,
-		MinSize:           scope.AWSMachinePool.Spec.MinSize,
-		VPCZoneIdentifier: scope.AWSMachinePool.Spec.Subnets,
+		Name:            scope.Name(),
+		DesiredCapacity: *scope.MachinePool.Spec.Replicas,
+		MaxSize:         scope.AWSMachinePool.Spec.MaxSize,
+		MinSize:         scope.AWSMachinePool.Spec.MinSize,
+		Subnets:         scope.AWSMachinePool.Spec.Subnets,
 	}
 
 	// TODO: do additional tags
@@ -163,7 +163,7 @@ func (s *Service) runPool(i *expinfrav1.AutoScalingGroup) (*expinfrav1.AutoScali
 		},
 		MaxSize:           aws.Int64(int64(i.MaxSize)),
 		MinSize:           aws.Int64(int64(i.MinSize)),
-		VPCZoneIdentifier: aws.String(strings.Join(i.VPCZoneIdentifier, ", ")),
+		VPCZoneIdentifier: aws.String(strings.Join(i.Subnets, ", ")),
 	}
 
 	s.scope.Info("Creating AutoScalingGroup")

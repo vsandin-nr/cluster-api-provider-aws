@@ -103,14 +103,14 @@ type Tags map[string]string
 // AutoScalingGroup describes an AWS autoscaling group.
 type AutoScalingGroup struct {
 	// The tags associated with the instance.
-	ID                string            `json:"id,omitempty"`
-	Tags              map[string]string `json:"tags,omitempty"`
-	Name              string            `json:"name,omitempty"`
-	DesiredCapacity   int32             `json:"desiredCapacity,omitempty"`
-	MaxSize           int32             `json:"maxSize,omitempty"`
-	MinSize           int32             `json:"minSize,omitempty"`
-	PlacementGroup    string            `json:"placementGroup,omitempty"`
-	VPCZoneIdentifier []string          `json:"vpcZoneIdentifier,omitempty"`
+	ID              string            `json:"id,omitempty"`
+	Tags            map[string]string `json:"tags,omitempty"`
+	Name            string            `json:"name,omitempty"`
+	DesiredCapacity int32             `json:"desiredCapacity,omitempty"`
+	MaxSize         int32             `json:"maxSize,omitempty"`
+	MinSize         int32             `json:"minSize,omitempty"`
+	PlacementGroup  string            `json:"placementGroup,omitempty"`
+	Subnets         []string          `json:"subnets,omitempty"`
 
 	Status    ASGStatus
 	Instances []infrav1.Instance `json:"instances,omitempty"`
