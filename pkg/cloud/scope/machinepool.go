@@ -32,8 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//TODO: Move this to exp when code changes settle down
-
 // MachinePoolScope defines a scope defined around a machine and its cluster.
 type MachinePoolScope struct {
 	logr.Logger
