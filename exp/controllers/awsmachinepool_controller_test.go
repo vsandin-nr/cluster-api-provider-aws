@@ -143,7 +143,6 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 			expectedErr := errors.New("no connection available ")
 
 			BeforeEach(func() {
-				// ec2Svc.EXPECT().GetLaunchTemplate(gomock.Any()).Return(nil, expectedErr).AnyTimes()
 				asgSvc.EXPECT().GetASGByName(gomock.Any()).Return(nil, expectedErr).AnyTimes()
 			})
 

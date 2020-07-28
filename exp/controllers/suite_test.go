@@ -28,13 +28,14 @@ import (
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
+	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	expclusterv1 "sigs.k8s.io/cluster-api/exp/api/v1alpha3"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -65,7 +66,11 @@ var _ = BeforeSuite(func(done Done) {
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
+<<<<<<< HEAD
 			filepath.Join("..", "config", "crd", "bases", "exp"),
+=======
+			filepath.Join("..", "config", "crd", "bases"),
+>>>>>>> ced95eb4... wip: base for integration tests
 		},
 	}
 
@@ -76,8 +81,14 @@ var _ = BeforeSuite(func(done Done) {
 
 	Expect(clusterv1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(infrav1.AddToScheme(scheme.Scheme)).To(Succeed())
+<<<<<<< HEAD
 	Expect(expinfrav1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(expclusterv1.AddToScheme(scheme.Scheme)).To(Succeed())
+=======
+
+	err = expinfrav1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+>>>>>>> ced95eb4... wip: base for integration tests
 
 	// +kubebuilder:scaffold:scheme
 
