@@ -22,7 +22,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/pkg/errors"
-	"k8s.io/utils/pointer"
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/awserrors"
@@ -179,10 +178,13 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 func (s *Service) runPool(i *expinfrav1.AutoScalingGroup) (*expinfrav1.AutoScalingGroup, error) {
 	input := &autoscaling.CreateAutoScalingGroupInput{
 		AutoScalingGroupName: aws.String(i.Name),
-		DesiredCapacity:      aws.Int64(int64(pointer.Int32PtrDerefOr(i.DesiredCapacity, 0))),
 		MaxSize:              aws.Int64(int64(i.MaxSize)),
 		MinSize:              aws.Int64(int64(i.MinSize)),
 		VPCZoneIdentifier:    aws.String(strings.Join(i.Subnets, ", ")),
+	}
+
+	if i.DesiredCapacity != nil {
+		input.DesiredCapacity = aws.Int64(int64(aws.Int32Value(i.DesiredCapacity)))
 	}
 
 	if i.MixedInstancesPolicy != nil {
