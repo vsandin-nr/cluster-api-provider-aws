@@ -49,10 +49,10 @@ func (s *Service) SDKToAutoScalingGroup(v *autoscaling.Group) (*expinfrav1.AutoS
 	if v.MixedInstancesPolicy != nil {
 		i.MixedInstancesPolicy = &expinfrav1.MixedInstancesPolicy{
 			InstancesDistribution: &expinfrav1.InstancesDistribution{
-				OnDemandAllocationStrategy:          aws.StringValue(v.MixedInstancesPolicy.InstancesDistribution.OnDemandAllocationStrategy),
-				OnDemandBaseCapacity:                aws.Int64Value(v.MixedInstancesPolicy.InstancesDistribution.OnDemandBaseCapacity),
-				OnDemandPercentageAboveBaseCapacity: aws.Int64Value(v.MixedInstancesPolicy.InstancesDistribution.OnDemandPercentageAboveBaseCapacity),
-				SpotAllocationStrategy:              aws.StringValue(v.MixedInstancesPolicy.InstancesDistribution.SpotAllocationStrategy),
+				OnDemandAllocationStrategy:          v.MixedInstancesPolicy.InstancesDistribution.OnDemandAllocationStrategy,
+				OnDemandBaseCapacity:                v.MixedInstancesPolicy.InstancesDistribution.OnDemandBaseCapacity,
+				OnDemandPercentageAboveBaseCapacity: v.MixedInstancesPolicy.InstancesDistribution.OnDemandPercentageAboveBaseCapacity,
+				SpotAllocationStrategy:              v.MixedInstancesPolicy.InstancesDistribution.SpotAllocationStrategy,
 			},
 		}
 
@@ -287,10 +287,10 @@ func createSDKMixedInstancesPolicy(name string, i *expinfrav1.MixedInstancesPoli
 
 	if i.InstancesDistribution != nil {
 		mixedInstancesPolicy.InstancesDistribution = &autoscaling.InstancesDistribution{
-			OnDemandAllocationStrategy:          aws.String(i.InstancesDistribution.OnDemandAllocationStrategy),
-			OnDemandBaseCapacity:                aws.Int64(i.InstancesDistribution.OnDemandBaseCapacity),
-			OnDemandPercentageAboveBaseCapacity: aws.Int64(i.InstancesDistribution.OnDemandPercentageAboveBaseCapacity),
-			SpotAllocationStrategy:              aws.String(i.InstancesDistribution.SpotAllocationStrategy),
+			OnDemandAllocationStrategy:          i.InstancesDistribution.OnDemandAllocationStrategy,
+			OnDemandBaseCapacity:                i.InstancesDistribution.OnDemandBaseCapacity,
+			OnDemandPercentageAboveBaseCapacity: i.InstancesDistribution.OnDemandPercentageAboveBaseCapacity,
+			SpotAllocationStrategy:              i.InstancesDistribution.SpotAllocationStrategy,
 		}
 	}
 
