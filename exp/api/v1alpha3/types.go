@@ -94,13 +94,13 @@ type Overrides struct {
 // InstancesDistribution from describe-auto-scaling-groups
 type InstancesDistribution struct {
 	// +kubebuilder:validation:Enum=prioritized
-	OnDemandAllocationStrategy string `json:"onDemandAllocationStrategy,omitempty"`
+	OnDemandAllocationStrategy *string `json:"onDemandAllocationStrategy,omitempty"`
 
 	// +kubebuilder:validation:Enum=lowest-price;capacity-optimized
-	SpotAllocationStrategy string `json:"spotAllocationStrategy,omitempty"`
+	SpotAllocationStrategy *string `json:"spotAllocationStrategy,omitempty"`
 
-	OnDemandBaseCapacity                int64 `json:"onDemandBaseCapacity,omitempty"`
-	OnDemandPercentageAboveBaseCapacity int64 `json:"onDemandPercentageAboveBaseCapacity,omitempty"`
+	OnDemandBaseCapacity                *int64 `json:"onDemandBaseCapacity,omitempty"`
+	OnDemandPercentageAboveBaseCapacity *int64 `json:"onDemandPercentageAboveBaseCapacity,omitempty"`
 }
 
 // MixedInstancesPolicy from describe-auto-scaling-groups
