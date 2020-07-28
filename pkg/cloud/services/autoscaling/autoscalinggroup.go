@@ -158,9 +158,13 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 		input.DesiredCapacity = scope.MachinePool.Spec.Replicas
 	}
 
+	if scope.AWSMachinePool.Status.LaunchTemplateID == "" {
+		return nil, errors.New("AWSMachinePool has no LaunchTemplateID for some reason")
+	}
+
 	// TODO: do additional tags
 	s.scope.Info("Running instance")
-	_, err := s.runPool(input) //TODO: log out for more debugging
+	_, err := s.runPool(input, scope.AWSMachinePool.Status.LaunchTemplateID) //TODO: log out for more debugging
 	if err != nil {
 		// Only record the failure event if the error is not related to failed dependencies.
 		// This is to avoid spamming failure events since the machine will be requeued by the actuator.
@@ -175,7 +179,7 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 	return nil, nil
 }
 
-func (s *Service) runPool(i *expinfrav1.AutoScalingGroup) (*expinfrav1.AutoScalingGroup, error) {
+func (s *Service) runPool(i *expinfrav1.AutoScalingGroup, launchTemplateID string) (*expinfrav1.AutoScalingGroup, error) {
 	input := &autoscaling.CreateAutoScalingGroupInput{
 		AutoScalingGroupName: aws.String(i.Name),
 		MaxSize:              aws.Int64(int64(i.MaxSize)),
@@ -191,8 +195,8 @@ func (s *Service) runPool(i *expinfrav1.AutoScalingGroup) (*expinfrav1.AutoScali
 		input.MixedInstancesPolicy = createSDKMixedInstancesPolicy(i.Name, i.MixedInstancesPolicy)
 	} else {
 		input.LaunchTemplate = &autoscaling.LaunchTemplateSpecification{
-			LaunchTemplateName: aws.String(i.Name),
-			Version:            aws.String(launchTemplateLatestVersion),
+			LaunchTemplateId: aws.String(launchTemplateID),
+			Version:          aws.String(launchTemplateLatestVersion),
 		}
 	}
 
@@ -246,17 +250,20 @@ func (s *Service) DeleteASG(name string) error {
 func (s *Service) UpdateASG(scope *scope.MachinePoolScope) error {
 	input := &autoscaling.UpdateAutoScalingGroupInput{
 		AutoScalingGroupName: aws.String(scope.Name()), //TODO: define dynamically - borrow logic from ec2
-		DesiredCapacity:      aws.Int64(int64(*scope.MachinePool.Spec.Replicas)),
 		MaxSize:              aws.Int64(int64(scope.AWSMachinePool.Spec.MaxSize)),
 		MinSize:              aws.Int64(int64(scope.AWSMachinePool.Spec.MinSize)),
 		VPCZoneIdentifier:    aws.String(strings.Join(scope.AWSMachinePool.Spec.Subnets, ", ")),
+	}
+
+	if scope.MachinePool.Spec.Replicas != nil {
+		input.DesiredCapacity = aws.Int64(int64(*scope.MachinePool.Spec.Replicas))
 	}
 
 	if scope.AWSMachinePool.Spec.MixedInstancesPolicy != nil {
 		input.MixedInstancesPolicy = createSDKMixedInstancesPolicy(scope.Name(), scope.AWSMachinePool.Spec.MixedInstancesPolicy)
 	} else {
 		input.LaunchTemplate = &autoscaling.LaunchTemplateSpecification{
-			LaunchTemplateName: aws.String(scope.Name()),
+			LaunchTemplateName: aws.String(scope.AWSMachinePool.Status.LaunchTemplateID),
 			Version:            aws.String(launchTemplateLatestVersion),
 		}
 	}

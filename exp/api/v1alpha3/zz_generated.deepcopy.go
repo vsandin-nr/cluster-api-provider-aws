@@ -205,6 +205,11 @@ func (in *AutoScalingGroup) DeepCopyInto(out *AutoScalingGroup) {
 			(*out)[key] = val
 		}
 	}
+	if in.DesiredCapacity != nil {
+		in, out := &in.DesiredCapacity, &out.DesiredCapacity
+		*out = new(int32)
+		**out = **in
+	}
 	if in.Subnets != nil {
 		in, out := &in.Subnets, &out.Subnets
 		*out = make([]string, len(*in))

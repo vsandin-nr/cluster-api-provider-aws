@@ -65,6 +65,7 @@ type AWSMachinePoolStatus struct {
 
 	AutoScalingGroupARN string               `json:"autoScalingGroupARN,omitempty"`
 	Conditions          clusterv1.Conditions `json:"conditions,omitempty"`
+	LaunchTemplateID    string               `json:"launchTemplateID,omitempty"`
 }
 
 // +kubebuilder:object:root=true

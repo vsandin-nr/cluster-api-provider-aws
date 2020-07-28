@@ -56,12 +56,12 @@ func (s *Service) GetLaunchTemplate(name string) (*expinfrav1.AWSLaunchTemplate,
 }
 
 // CreateLaunchTemplate generates a launch template to be used with the autoscaling group
-func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData []byte) (*expinfrav1.AWSLaunchTemplate, error) {
+func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData []byte) (string, error) {
 	s.scope.Info("Create a new launch template")
 
 	launchTemplateData, err := s.createLaunchTemplateData(scope, userData)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to form launch template data")
+		return "", errors.Wrapf(err, "unable to form launch template data")
 	}
 
 	input := &ec2.CreateLaunchTemplateInput{
@@ -71,18 +71,9 @@ func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData [
 
 	result, err := s.EC2Client.CreateLaunchTemplate(input)
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			s.scope.Info("", "aerr", aerr.Error())
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			s.scope.Info("", "error", err.Error())
-		}
+		return "", err
 	}
-
-	s.scope.Info("Got it", "result", result.LaunchTemplate.LaunchTemplateName)
-
-	return nil, nil
+	return aws.StringValue(result.LaunchTemplate.LaunchTemplateId), nil
 }
 
 func (s *Service) CreateLaunchTemplateVersion(scope *scope.MachinePoolScope, userData []byte) (*expinfrav1.AWSLaunchTemplate, error) {
