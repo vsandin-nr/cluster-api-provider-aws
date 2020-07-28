@@ -242,8 +242,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 
 	if asg == nil {
 		// Create new ASG
-		_, err = r.createPool(machinePoolScope, clusterScope)
-		if err != nil {
+		if _, err := r.createPool(machinePoolScope, clusterScope); err != nil {
 			conditions.MarkFalse(machinePoolScope.AWSMachinePool, expinfrav1.ASGReadyCondition, expinfrav1.ASGProvisionFailedReason, clusterv1.ConditionSeverityError, err.Error())
 			return ctrl.Result{}, err
 		}
@@ -252,6 +251,11 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 
 	if err := r.updatePool(machinePoolScope, clusterScope, asg); err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "error updating AWSMachinePool")
+	}
+
+	err = r.reconcileTags(machinePoolScope, clusterScope)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err, "error updating tags")
 	}
 
 	// Make sure Spec.ProviderID is always set.
@@ -391,20 +395,51 @@ func (r *AWSMachinePoolReconciler) reconcileLaunchTemplate(machinePoolScope *sco
 
 		machinePoolScope.AWSMachinePool.Status.LaunchTemplateID = launchTemplateID
 
-		return machinePoolScope.PatchObject()
+		if err := machinePoolScope.PatchObject(); err != nil {
+			return err
+		}
+
+		return err
 	}
+
+	annotation, err := r.machinePoolAnnotationJSON(machinePoolScope.AWSMachinePool, TagsLastAppliedAnnotation)
+	if err != nil {
+		return err
+	}
+
+	// Check if the instance tags were changed. If they were, create a new LaunchTemplate.
+	tagsChanged, _, _, _ := tagsChanged(annotation, machinePoolScope.AdditionalTags()) // nolint:dogsled
 
 	needsUpdate, err := ec2svc.LaunchTemplateNeedsUpdate(&machinePoolScope.AWSMachinePool.Spec.AWSLaunchTemplate, launchTemplate)
 	if err != nil {
 		return err
 	}
-	if needsUpdate {
+	if needsUpdate || tagsChanged {
 		machinePoolScope.Info("creating new version for launch template", "existing", launchTemplate, "incoming", machinePoolScope.AWSMachinePool.Spec.AWSLaunchTemplate)
 		if err := ec2svc.CreateLaunchTemplateVersion(machinePoolScope, userData); err != nil {
 			return err
 		}
+
 	}
 
+	return nil
+}
+
+func (r *AWSMachinePoolReconciler) reconcileTags(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) error {
+	ec2Svc := r.getEC2Service(clusterScope)
+	asgSvc := r.getASGService(clusterScope)
+
+	launchTemplateID := machinePoolScope.AWSMachinePool.Status.LaunchTemplateID
+	asgName := machinePoolScope.Name()
+	additionalTags := machinePoolScope.AdditionalTags()
+
+	tagsChanged, err := r.ensureTags(ec2Svc, asgSvc, machinePoolScope.AWSMachinePool, &launchTemplateID, &asgName, additionalTags)
+	if err != nil {
+		return err
+	}
+	if tagsChanged {
+		r.Recorder.Eventf(machinePoolScope.AWSMachinePool, corev1.EventTypeNormal, "UpdatedTags", "updated tags on resources")
+	}
 	return nil
 }
 
