@@ -93,10 +93,14 @@ type Overrides struct {
 
 // InstancesDistribution from describe-auto-scaling-groups
 type InstancesDistribution struct {
-	OnDemandAllocationStrategy          string `json:"onDemandAllocationStrategy,omitempty"`
-	OnDemandBaseCapacity                int64  `json:"onDemandBaseCapacity,omitempty"`
-	OnDemandPercentageAboveBaseCapacity int64  `json:"onDemandPercentageAboveBaseCapacity,omitempty"`
-	SpotAllocationStrategy              string `json:"spotAllocationStrategy,omitempty"`
+	// +kubebuilder:validation:Enum=prioritized
+	OnDemandAllocationStrategy string `json:"onDemandAllocationStrategy,omitempty"`
+
+	// +kubebuilder:validation:Enum=lowest-price;capacity-optimized
+	SpotAllocationStrategy string `json:"spotAllocationStrategy,omitempty"`
+
+	OnDemandBaseCapacity                int64 `json:"onDemandBaseCapacity,omitempty"`
+	OnDemandPercentageAboveBaseCapacity int64 `json:"onDemandPercentageAboveBaseCapacity,omitempty"`
 }
 
 // MixedInstancesPolicy from describe-auto-scaling-groups
@@ -124,10 +128,6 @@ type AutoScalingGroup struct {
 
 	Status    ASGStatus
 	Instances []infrav1.Instance `json:"instances,omitempty"`
-
-	// todo
-	// MixedInstancesPolicy        *autoscaling.MixedInstancesPolicy
-	// LaunchTemplateSpecification *autoscaling.LaunchTemplateSpecification
 }
 
 // ASGStatus is a status string returned by the autoscaling API

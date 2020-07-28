@@ -186,6 +186,8 @@ spec:
                     description: InstancesDistribution from describe-auto-scaling-groups
                     properties:
                       onDemandAllocationStrategy:
+                        enum:
+                        - prioritized
                         type: string
                       onDemandBaseCapacity:
                         format: int64
@@ -194,6 +196,9 @@ spec:
                         format: int64
                         type: integer
                       spotAllocationStrategy:
+                        enum:
+                        - lowest-price
+                        - capacity-optimized
                         type: string
                     type: object
                   overrides:
