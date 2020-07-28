@@ -143,6 +143,7 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 			expectedErr := errors.New("no connection available ")
 
 			BeforeEach(func() {
+				ec2Svc.EXPECT().GetLaunchTemplate(gomock.Any()).Return(nil, expectedErr).AnyTimes()
 				asgSvc.EXPECT().GetASGByName(gomock.Any()).Return(nil, expectedErr).AnyTimes()
 			})
 
@@ -161,7 +162,7 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 			It("should add our finalizer to the machinepool", func() {
 				_, _ = reconciler.reconcileNormal(context.Background(), ms, cs)
 
-				Expect(ms.AWSMachinePool.Finalizers).To(ContainElement(infrav1.MachineFinalizer))
+				Expect(ms.AWSMachinePool.Finalizers).To(ContainElement(expinfrav1.MachinePoolFinalizer))
 			})
 
 			It("should exit immediately if cluster infra isn't ready", func() {
@@ -173,7 +174,7 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 				_, err := reconciler.reconcileNormal(context.Background(), ms, cs)
 				Expect(err).To(BeNil())
 				Expect(buf.String()).To(ContainSubstring("Cluster infrastructure is not ready yet"))
-				expectConditions(ms.AWSMachinePool, []conditionAssertion{{infrav1.InstanceReadyCondition, corev1.ConditionFalse, clusterv1.ConditionSeverityInfo, infrav1.WaitingForClusterInfrastructureReason}})
+				expectConditions(ms.AWSMachinePool, []conditionAssertion{{expinfrav1.ASGReadyCondition, corev1.ConditionFalse, clusterv1.ConditionSeverityInfo, infrav1.WaitingForClusterInfrastructureReason}})
 			})
 
 			It("should exit immediately if bootstrap data secret reference isn't available", func() {
@@ -185,7 +186,7 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 
 				Expect(err).To(BeNil())
 				Expect(buf.String()).To(ContainSubstring("Bootstrap data secret reference is not yet available"))
-				expectConditions(ms.AWSMachinePool, []conditionAssertion{{infrav1.InstanceReadyCondition, corev1.ConditionFalse, clusterv1.ConditionSeverityInfo, infrav1.WaitingForBootstrapDataReason}})
+				expectConditions(ms.AWSMachinePool, []conditionAssertion{{expinfrav1.ASGReadyCondition, corev1.ConditionFalse, clusterv1.ConditionSeverityInfo, infrav1.WaitingForBootstrapDataReason}})
 			})
 
 			It("should return an error when we can't list instances by tags", func() {
@@ -402,51 +403,6 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 		// 	})
 	})
 })
-
-// func TestAWSMachinePoolReconciler_getASGService(t *testing.T) {
-// 	type fields struct {
-// 		Client            client.Client
-// 		Log               logr.Logger
-// 		Recorder          record.EventRecorder
-// 		asgServiceFactory func(*scope.ClusterScope) services.ASGInterface
-// 		ec2ServiceFactory func(*scope.ClusterScope) services.EC2MachineInterface
-// 	}
-// 	type args struct {
-// 		scope *scope.ClusterScope
-// 	}
-// 	tests := []struct {
-// 		name   string
-// 		fields fields
-// 		args   args
-// 		want   services.ASGInterface
-// 	}{
-// 		{
-// 			name: "nil ASG service factory",
-// 			fields: fields{
-// 				asgServiceFactory: nil,
-// 			},
-// 			args: args{
-// 				scope: &scope.ClusterScope{},
-// 			},
-// 			want: ,
-// 		},
-// 	}
-
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			r := &AWSMachinePoolReconciler{
-// 				Client:            tt.fields.Client,
-// 				Log:               tt.fields.Log,
-// 				Recorder:          tt.fields.Recorder,
-// 				asgServiceFactory: tt.fields.asgServiceFactory,
-// 				ec2ServiceFactory: tt.fields.ec2ServiceFactory,
-// 			}
-// 			if got := r.getASGService(tt.args.scope); !reflect.DeepEqual(got, tt.want) {
-// 				t.Errorf("AWSMachinePoolReconciler.getASGService() = %v, want %v", got, tt.want)
-// 			}
-// 		})
-// 	}
-// }
 
 func expectConditions(m *expinfrav1.AWSMachinePool, expected []conditionAssertion) {
 	Expect(len(m.Status.Conditions)).To(BeNumerically(">=", len(expected)), "number of conditions")
