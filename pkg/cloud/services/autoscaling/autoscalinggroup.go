@@ -30,15 +30,35 @@ import (
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/record"
 )
 
+const (
+	launchTemplateLatestVersion = "$Latest"
+)
+
 // SDKToAutoScalingGroup converts an AWS EC2 SDK AutoScalingGroup to the CAPA AutoScalingGroup type.
 func (s *Service) SDKToAutoScalingGroup(v *autoscaling.Group) (*expinfrav1.AutoScalingGroup, error) {
 	i := &expinfrav1.AutoScalingGroup{
-		ID:              aws.StringValue(v.AutoScalingGroupARN),
-		Name:            aws.StringValue(v.AutoScalingGroupName),
-		DesiredCapacity: int32(aws.Int64Value(v.DesiredCapacity)),
+		ID:   aws.StringValue(v.AutoScalingGroupARN),
+		Name: aws.StringValue(v.AutoScalingGroupName),
+		// TODO(rudoi): this is just terrible
+		DesiredCapacity: aws.Int32(int32(aws.Int64Value(v.DesiredCapacity))),
 		MaxSize:         int32(aws.Int64Value(v.MaxSize)),
 		MinSize:         int32(aws.Int64Value(v.MinSize)),
 		//TODO: determine what additional values go here and what else should be in the struct
+	}
+
+	if v.MixedInstancesPolicy != nil {
+		i.MixedInstancesPolicy = &expinfrav1.MixedInstancesPolicy{
+			InstancesDistribution: &expinfrav1.InstancesDistribution{
+				OnDemandAllocationStrategy:          aws.StringValue(v.MixedInstancesPolicy.InstancesDistribution.OnDemandAllocationStrategy),
+				OnDemandBaseCapacity:                aws.Int64Value(v.MixedInstancesPolicy.InstancesDistribution.OnDemandBaseCapacity),
+				OnDemandPercentageAboveBaseCapacity: aws.Int64Value(v.MixedInstancesPolicy.InstancesDistribution.OnDemandPercentageAboveBaseCapacity),
+				SpotAllocationStrategy:              aws.StringValue(v.MixedInstancesPolicy.InstancesDistribution.SpotAllocationStrategy),
+			},
+		}
+
+		for _, override := range v.MixedInstancesPolicy.LaunchTemplate.Overrides {
+			i.MixedInstancesPolicy.Overrides = append(i.MixedInstancesPolicy.Overrides, expinfrav1.Overrides{InstanceType: aws.StringValue(override.InstanceType)})
+		}
 	}
 
 	if v.Status != nil {
@@ -127,16 +147,24 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 	s.scope.Info("Creating an autoscaling group for a machine pool")
 
 	input := &expinfrav1.AutoScalingGroup{
-		Name:            scope.Name(),
-		DesiredCapacity: *scope.MachinePool.Spec.Replicas,
-		MaxSize:         scope.AWSMachinePool.Spec.MaxSize,
-		MinSize:         scope.AWSMachinePool.Spec.MinSize,
-		Subnets:         scope.AWSMachinePool.Spec.Subnets,
+		Name:                 scope.Name(),
+		MaxSize:              scope.AWSMachinePool.Spec.MaxSize,
+		MinSize:              scope.AWSMachinePool.Spec.MinSize,
+		Subnets:              scope.AWSMachinePool.Spec.Subnets,
+		MixedInstancesPolicy: scope.AWSMachinePool.Spec.MixedInstancesPolicy,
+	}
+
+	if scope.MachinePool.Spec.Replicas != nil {
+		input.DesiredCapacity = scope.MachinePool.Spec.Replicas
+	}
+
+	if scope.AWSMachinePool.Status.LaunchTemplateID == "" {
+		return nil, errors.New("AWSMachinePool has no LaunchTemplateID for some reason")
 	}
 
 	// TODO: do additional tags
 	s.scope.Info("Running instance")
-	_, err := s.runPool(input) //TODO: log out for more debugging
+	_, err := s.runPool(input, scope.AWSMachinePool.Status.LaunchTemplateID) //TODO: log out for more debugging
 	if err != nil {
 		// Only record the failure event if the error is not related to failed dependencies.
 		// This is to avoid spamming failure events since the machine will be requeued by the actuator.
@@ -151,19 +179,25 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 	return nil, nil
 }
 
-func (s *Service) runPool(i *expinfrav1.AutoScalingGroup) (*expinfrav1.AutoScalingGroup, error) {
+func (s *Service) runPool(i *expinfrav1.AutoScalingGroup, launchTemplateID string) (*expinfrav1.AutoScalingGroup, error) {
 	input := &autoscaling.CreateAutoScalingGroupInput{
 		AutoScalingGroupName: aws.String(i.Name),
-		DesiredCapacity:      aws.Int64(int64(i.DesiredCapacity)),
-		LaunchTemplate: &autoscaling.LaunchTemplateSpecification{
-			LaunchTemplateName: aws.String(i.Name),
+		MaxSize:              aws.Int64(int64(i.MaxSize)),
+		MinSize:              aws.Int64(int64(i.MinSize)),
+		VPCZoneIdentifier:    aws.String(strings.Join(i.Subnets, ", ")),
+	}
 
-			// always use the latest version of the associated launch template
-			Version: aws.String("$Latest"),
-		},
-		MaxSize:           aws.Int64(int64(i.MaxSize)),
-		MinSize:           aws.Int64(int64(i.MinSize)),
-		VPCZoneIdentifier: aws.String(strings.Join(i.Subnets, ", ")),
+	if i.DesiredCapacity != nil {
+		input.DesiredCapacity = aws.Int64(int64(aws.Int32Value(i.DesiredCapacity)))
+	}
+
+	if i.MixedInstancesPolicy != nil {
+		input.MixedInstancesPolicy = createSDKMixedInstancesPolicy(i.Name, i.MixedInstancesPolicy)
+	} else {
+		input.LaunchTemplate = &autoscaling.LaunchTemplateSpecification{
+			LaunchTemplateId: aws.String(launchTemplateID),
+			Version:          aws.String(launchTemplateLatestVersion),
+		}
 	}
 
 	s.scope.Info("Creating AutoScalingGroup")
@@ -216,10 +250,22 @@ func (s *Service) DeleteASG(name string) error {
 func (s *Service) UpdateASG(scope *scope.MachinePoolScope) error {
 	input := &autoscaling.UpdateAutoScalingGroupInput{
 		AutoScalingGroupName: aws.String(scope.Name()), //TODO: define dynamically - borrow logic from ec2
-		DesiredCapacity:      aws.Int64(int64(*scope.MachinePool.Spec.Replicas)),
 		MaxSize:              aws.Int64(int64(scope.AWSMachinePool.Spec.MaxSize)),
 		MinSize:              aws.Int64(int64(scope.AWSMachinePool.Spec.MinSize)),
 		VPCZoneIdentifier:    aws.String(strings.Join(scope.AWSMachinePool.Spec.Subnets, ", ")),
+	}
+
+	if scope.MachinePool.Spec.Replicas != nil {
+		input.DesiredCapacity = aws.Int64(int64(*scope.MachinePool.Spec.Replicas))
+	}
+
+	if scope.AWSMachinePool.Spec.MixedInstancesPolicy != nil {
+		input.MixedInstancesPolicy = createSDKMixedInstancesPolicy(scope.Name(), scope.AWSMachinePool.Spec.MixedInstancesPolicy)
+	} else {
+		input.LaunchTemplate = &autoscaling.LaunchTemplateSpecification{
+			LaunchTemplateName: aws.String(scope.AWSMachinePool.Status.LaunchTemplateID),
+			Version:            aws.String(launchTemplateLatestVersion),
+		}
 	}
 
 	if _, err := s.ASGClient.UpdateAutoScalingGroup(input); err != nil {
@@ -227,4 +273,32 @@ func (s *Service) UpdateASG(scope *scope.MachinePoolScope) error {
 	}
 
 	return nil
+}
+
+func createSDKMixedInstancesPolicy(name string, i *expinfrav1.MixedInstancesPolicy) *autoscaling.MixedInstancesPolicy {
+	mixedInstancesPolicy := &autoscaling.MixedInstancesPolicy{
+		LaunchTemplate: &autoscaling.LaunchTemplate{
+			LaunchTemplateSpecification: &autoscaling.LaunchTemplateSpecification{
+				LaunchTemplateName: aws.String(name),
+				Version:            aws.String(launchTemplateLatestVersion),
+			},
+		},
+	}
+
+	if i.InstancesDistribution != nil {
+		mixedInstancesPolicy.InstancesDistribution = &autoscaling.InstancesDistribution{
+			OnDemandAllocationStrategy:          aws.String(i.InstancesDistribution.OnDemandAllocationStrategy),
+			OnDemandBaseCapacity:                aws.Int64(i.InstancesDistribution.OnDemandBaseCapacity),
+			OnDemandPercentageAboveBaseCapacity: aws.Int64(i.InstancesDistribution.OnDemandPercentageAboveBaseCapacity),
+			SpotAllocationStrategy:              aws.String(i.InstancesDistribution.SpotAllocationStrategy),
+		}
+	}
+
+	for _, override := range i.Overrides {
+		mixedInstancesPolicy.LaunchTemplate.Overrides = append(mixedInstancesPolicy.LaunchTemplate.Overrides, &autoscaling.LaunchTemplateOverrides{
+			InstanceType: aws.String(override.InstanceType),
+		})
+	}
+
+	return mixedInstancesPolicy
 }
