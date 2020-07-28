@@ -49,7 +49,7 @@ type EC2MachineInterface interface {
 	DetachSecurityGroupsFromNetworkInterface(groups []string, interfaceID string) error
 
 	GetLaunchTemplate(name string) (*expinfrav1.AWSLaunchTemplate, error)
-	CreateLaunchTemplate(scope *scope.MachinePoolScope, userData []byte) (*expinfrav1.AWSLaunchTemplate, error)
+	CreateLaunchTemplate(scope *scope.MachinePoolScope, userData []byte) (string, error)
 	CreateLaunchTemplateVersion(scope *scope.MachinePoolScope, userData []byte) (*expinfrav1.AWSLaunchTemplate, error)
 	DeleteLaunchTemplate(id string) error
 }
