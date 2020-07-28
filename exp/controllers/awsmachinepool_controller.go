@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -387,18 +388,20 @@ func (r *AWSMachinePoolReconciler) reconcileLaunchTemplate(machinePoolScope *sco
 
 // asgNeedsUpdates compares incoming AWSMachinePool and compares against existing ASG
 func asgNeedsUpdates(machinePoolScope *scope.MachinePoolScope, existingASG *expinfrav1.AutoScalingGroup) bool {
-	if *machinePoolScope.MachinePool.Spec.Replicas != existingASG.DesiredCapacity {
-		machinePoolScope.Info("desired mismatch", "incoming", *machinePoolScope.MachinePool.Spec.Replicas, "existing", existingASG.DesiredCapacity)
+	if machinePoolScope.MachinePool.Spec.Replicas != existingASG.DesiredCapacity {
 		return true
 	}
 
 	if machinePoolScope.AWSMachinePool.Spec.MaxSize != existingASG.MaxSize {
-		machinePoolScope.Info("max mismatch", "incoming", machinePoolScope.AWSMachinePool.Spec.MaxSize, "existing", existingASG.MaxSize)
 		return true
 	}
 
 	if machinePoolScope.AWSMachinePool.Spec.MinSize != existingASG.MinSize {
-		machinePoolScope.Info("min mismatch", "incoming", machinePoolScope.AWSMachinePool.Spec.MinSize, "existing", existingASG.MinSize)
+		return true
+	}
+
+	if !reflect.DeepEqual(machinePoolScope.AWSMachinePool.Spec.MixedInstancesPolicy, existingASG.MixedInstancesPolicy) {
+		machinePoolScope.Info("got a mixed diff here", "incoming", machinePoolScope.AWSMachinePool.Spec.MixedInstancesPolicy, "existing", existingASG.MixedInstancesPolicy)
 		return true
 	}
 

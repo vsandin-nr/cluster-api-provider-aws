@@ -126,40 +126,6 @@ func (s *Service) createLaunchTemplateData(scope *scope.MachinePoolScope, userDa
 		UserData: pointer.StringPtr(base64.StdEncoding.EncodeToString(userData)),
 	}
 
-	// Set up root volume
-	if lt.RootVolume != nil {
-		rootDeviceName, err := s.checkRootVolume(lt.RootVolume, *lt.AMI.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		ebsRootDevice := &ec2.LaunchTemplateEbsBlockDeviceRequest{
-			DeleteOnTermination: aws.Bool(true),
-			VolumeSize:          aws.Int64(lt.RootVolume.Size),
-			Encrypted:           aws.Bool(lt.RootVolume.Encrypted),
-		}
-
-		if lt.RootVolume.IOPS != 0 {
-			ebsRootDevice.Iops = aws.Int64(lt.RootVolume.IOPS)
-		}
-
-		if lt.RootVolume.EncryptionKey != "" {
-			ebsRootDevice.Encrypted = aws.Bool(true)
-			ebsRootDevice.KmsKeyId = aws.String(lt.RootVolume.EncryptionKey)
-		}
-
-		if lt.RootVolume.Type != "" {
-			ebsRootDevice.VolumeType = aws.String(lt.RootVolume.Type)
-		}
-
-		data.BlockDeviceMappings = []*ec2.LaunchTemplateBlockDeviceMappingRequest{
-			{
-				DeviceName: rootDeviceName,
-				Ebs:        ebsRootDevice,
-			},
-		}
-	}
-
 	additionalTags := scope.AdditionalTags()
 	// Set the cloud provider tag
 	additionalTags[infrav1.ClusterAWSCloudProviderTagKey(s.scope.Name())] = string(infrav1.ResourceLifecycleOwned)
@@ -230,6 +196,40 @@ func (s *Service) createLaunchTemplateData(scope *scope.MachinePoolScope, userDa
 			return nil, err
 		}
 		data.ImageId = aws.String(lookupAMI)
+	}
+
+	// Set up root volume
+	if lt.RootVolume != nil {
+		rootDeviceName, err := s.checkRootVolume(lt.RootVolume, *data.ImageId)
+		if err != nil {
+			return nil, err
+		}
+
+		ebsRootDevice := &ec2.LaunchTemplateEbsBlockDeviceRequest{
+			DeleteOnTermination: aws.Bool(true),
+			VolumeSize:          aws.Int64(lt.RootVolume.Size),
+			Encrypted:           aws.Bool(lt.RootVolume.Encrypted),
+		}
+
+		if lt.RootVolume.IOPS != 0 {
+			ebsRootDevice.Iops = aws.Int64(lt.RootVolume.IOPS)
+		}
+
+		if lt.RootVolume.EncryptionKey != "" {
+			ebsRootDevice.Encrypted = aws.Bool(true)
+			ebsRootDevice.KmsKeyId = aws.String(lt.RootVolume.EncryptionKey)
+		}
+
+		if lt.RootVolume.Type != "" {
+			ebsRootDevice.VolumeType = aws.String(lt.RootVolume.Type)
+		}
+
+		data.BlockDeviceMappings = []*ec2.LaunchTemplateBlockDeviceMappingRequest{
+			{
+				DeviceName: rootDeviceName,
+				Ebs:        ebsRootDevice,
+			},
+		}
 	}
 
 	return data, nil

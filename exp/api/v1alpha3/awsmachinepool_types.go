@@ -38,13 +38,16 @@ type AWSMachinePoolSpec struct {
 	AdditionalTags       infrav1.Tags      `json:"additionalTags,omitempty"`
 	AWSLaunchTemplate    AWSLaunchTemplate `json:"awsLaunchTemplate,omitempty"`
 
+	// MixedInstancesPolicy describes how multiple instance types will be used by the ASG.
+	MixedInstancesPolicy *MixedInstancesPolicy `json:"mixedInstancesPolicy,omitempty"`
+
 	// ProviderIDList are the identification IDs of machine instances provided by the provider.
 	// This field must match the provider IDs as seen on the node objects corresponding to a machine pool's machine instances.
 	// +optional
 	ProviderIDList []string `json:"providerIDList,omitempty"`
 
 	// AdditionalSecurityGroups is an array of references to security groups that should be applied to the
-	// instance. These security groups would be set in addition to any security groups defined
+	// instances. These security groups would be set in addition to any security groups defined
 	// at the cluster level or in the actuator.
 	// +optional
 	AdditionalSecurityGroups []infrav1.AWSResourceReference `json:"additionalSecurityGroups,omitempty"`

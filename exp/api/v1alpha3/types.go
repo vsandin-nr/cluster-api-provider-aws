@@ -86,36 +86,23 @@ type AWSLaunchTemplate struct {
 	VersionNumber *int64 `json:"versionNumber,omitempty"`
 }
 
-// LaunchTemplateSpecification from describe-auto-scaling-groups
-type LaunchTemplateSpecification struct {
-	LaunchTemplateID   string `json:"launchTemplateId,omitempty"`
-	LaunchTemplateName string `json:"launchTemplateName,omitempty"`
-	Version            string `json:"version,omitempty"`
-}
-
-// LaunchTemplate from describe-auto-scaling-groups
-type LaunchTemplate struct {
-	LaunchTemplateSpecification LaunchTemplateSpecification `json:"launchTemplateSpecification,omitempty"`
-	Overrides                   []Overrides                 `json:"overrides,omitempty"`
-}
-
 // Overrides from describe-auto-scaling-groups
 type Overrides struct {
-	InstanceType string `json:"InstanceType"`
+	InstanceType string `json:"instanceType"`
 }
 
 // InstancesDistribution from describe-auto-scaling-groups
 type InstancesDistribution struct {
 	OnDemandAllocationStrategy          string `json:"onDemandAllocationStrategy,omitempty"`
-	OnDemandBaseCapacity                int    `json:"onDemandBaseCapacity,omitempty"`
-	OnDemandPercentageAboveBaseCapacity int    `json:"onDemandPercentageAboveBaseCapacity,omitempty"`
+	OnDemandBaseCapacity                int64  `json:"onDemandBaseCapacity,omitempty"`
+	OnDemandPercentageAboveBaseCapacity int64  `json:"onDemandPercentageAboveBaseCapacity,omitempty"`
 	SpotAllocationStrategy              string `json:"spotAllocationStrategy,omitempty"`
 }
 
 // MixedInstancesPolicy from describe-auto-scaling-groups
 type MixedInstancesPolicy struct {
-	LaunchTemplate        LaunchTemplate        `json:"launchTemplate,omitempty"`
-	InstancesDistribution InstancesDistribution `json:"instancesDistribution,omitempty"`
+	InstancesDistribution *InstancesDistribution `json:"instancesDistribution,omitempty"`
+	Overrides             []Overrides            `json:"overrides,omitempty"`
 }
 
 // Tags
@@ -127,11 +114,13 @@ type AutoScalingGroup struct {
 	ID              string            `json:"id,omitempty"`
 	Tags            map[string]string `json:"tags,omitempty"`
 	Name            string            `json:"name,omitempty"`
-	DesiredCapacity int32             `json:"desiredCapacity,omitempty"`
+	DesiredCapacity *int32            `json:"desiredCapacity,omitempty"`
 	MaxSize         int32             `json:"maxSize,omitempty"`
 	MinSize         int32             `json:"minSize,omitempty"`
 	PlacementGroup  string            `json:"placementGroup,omitempty"`
 	Subnets         []string          `json:"subnets,omitempty"`
+
+	MixedInstancesPolicy *MixedInstancesPolicy `json:"mixedInstancesPolicy,omitempty"`
 
 	Status    ASGStatus
 	Instances []infrav1.Instance `json:"instances,omitempty"`
