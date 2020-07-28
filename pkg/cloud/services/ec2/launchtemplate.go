@@ -33,11 +33,11 @@ import (
 
 // GetLaunchTemplate returns the existing LaunchTemplate or nothing if it doesn't exist.
 // For now by name until we need the input to be something different
-func (s *Service) GetLaunchTemplate(name string) (*expinfrav1.AWSLaunchTemplate, error) {
+func (s *Service) GetLaunchTemplate(id string) (*expinfrav1.AWSLaunchTemplate, error) {
 	s.scope.V(2).Info("Looking for existing LaunchTemplates")
 
 	input := &ec2.DescribeLaunchTemplateVersionsInput{
-		LaunchTemplateName: aws.String(name),
+		LaunchTemplateId: aws.String(id),
 	}
 
 	out, err := s.EC2Client.DescribeLaunchTemplateVersions(input)
