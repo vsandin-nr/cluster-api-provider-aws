@@ -184,3 +184,8 @@ func (m *MachinePoolScope) SetFailureMessage(v error) {
 func (m *MachinePoolScope) SetFailureReason(v capierrors.MachineStatusError) {
 	m.AWSMachinePool.Status.FailureReason = &v
 }
+
+// HasFailed returns true when the AWSMachinePool's Failure reason or Failure message is populated
+func (m *MachinePoolScope) HasFailed() bool {
+	return m.AWSMachinePool.Status.FailureReason != nil || m.AWSMachinePool.Status.FailureMessage != nil
+}
