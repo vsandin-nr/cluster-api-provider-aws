@@ -25,4 +25,11 @@ const (
 	ASGNotFoundReason = "ASGNotFound"
 	// ASGProvisionFailedReason used for failures during autoscaling group provisioning.
 	ASGProvisionFailedReason = "ASGProvisionFailed"
+
+	// LaunchTemplateReadyCondition represents the status of an AWSMachinePool's associated Launch Template
+	LaunchTemplateReadyCondition clusterv1.ConditionType = "LaunchTemplateReady"
+	// LaunchTemplateNotFoundReason is used when an associated Launch Template can't be found
+	LaunchTemplateNotFoundReason = "LaunchTemplateNotFound"
+	// LaunchTemplateCreateFailedReason used for failures during Launch Template creation
+	LaunchTemplateCreateFailedReason = "LaunchTemplateCreateFailed"
 )

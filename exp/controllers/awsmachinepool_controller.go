@@ -151,15 +151,15 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, r
 
 	// Always close the scope when exiting this function so we can persist any AWSMachine changes.
 	defer func() {
-		// set Ready condition before AWSMachine is patched
+		// set Ready condition before AWSMachinePool is patched
 		conditions.SetSummary(machinePoolScope.AWSMachinePool,
 			conditions.WithConditions(
 				expinfrav1.ASGReadyCondition,
-				infrav1.SecurityGroupsReadyCondition,
+				expinfrav1.LaunchTemplateReadyCondition,
 			),
 			conditions.WithStepCounterIfOnly(
 				expinfrav1.ASGReadyCondition,
-				infrav1.SecurityGroupsReadyCondition,
+				expinfrav1.LaunchTemplateReadyCondition,
 			),
 		)
 
@@ -220,6 +220,9 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 		return ctrl.Result{}, err
 	}
 
+	// set the LaunchTemplateReady condition
+	conditions.MarkTrue(machinePoolScope.AWSMachinePool, expinfrav1.LaunchTemplateReadyCondition)
+
 	// Initialize ASG client
 	asgsvc := r.getASGService(clusterScope)
 
@@ -256,6 +259,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 	machinePoolScope.AWSMachinePool.Spec.ProviderIDList = providerIDList
 	machinePoolScope.AWSMachinePool.Status.Replicas = int32(len(providerIDList))
 	machinePoolScope.AWSMachinePool.Status.Ready = true
+	conditions.MarkTrue(machinePoolScope.AWSMachinePool, expinfrav1.ASGReadyCondition)
 
 	return ctrl.Result{}, nil
 }
@@ -361,12 +365,14 @@ func (r *AWSMachinePoolReconciler) reconcileLaunchTemplate(machinePoolScope *sco
 	ec2svc := r.getEC2Service(clusterScope)
 	launchTemplate, err := ec2svc.GetLaunchTemplate(machinePoolScope.AWSMachinePool.Status.LaunchTemplateID)
 	if err != nil {
+		conditions.MarkUnknown(machinePoolScope.AWSMachinePool, expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateNotFoundReason, err.Error())
 		return err
 	}
 	if launchTemplate == nil {
 		machinePoolScope.Info("no existing launch template found, creating")
 		launchTemplateID, err := ec2svc.CreateLaunchTemplate(machinePoolScope, userData)
 		if err != nil {
+			conditions.MarkFalse(machinePoolScope.AWSMachinePool, expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateCreateFailedReason, clusterv1.ConditionSeverityError, err.Error())
 			return err
 		}
 
