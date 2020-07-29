@@ -82,12 +82,11 @@ func (mr *MockEC2MachineInterfaceMockRecorder) CreateLaunchTemplate(arg0, arg1 i
 }
 
 // CreateLaunchTemplateVersion mocks base method
-func (m *MockEC2MachineInterface) CreateLaunchTemplateVersion(arg0 *scope.MachinePoolScope, arg1 []byte) (*v1alpha30.AWSLaunchTemplate, error) {
+func (m *MockEC2MachineInterface) CreateLaunchTemplateVersion(arg0 *scope.MachinePoolScope, arg1 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateLaunchTemplateVersion", arg0, arg1)
-	ret0, _ := ret[0].(*v1alpha30.AWSLaunchTemplate)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // CreateLaunchTemplateVersion indicates an expected call of CreateLaunchTemplateVersion

@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/pkg/errors"
 	"k8s.io/utils/pointer"
@@ -79,33 +78,25 @@ func (s *Service) CreateLaunchTemplate(scope *scope.MachinePoolScope, userData [
 	return aws.StringValue(result.LaunchTemplate.LaunchTemplateId), nil
 }
 
-func (s *Service) CreateLaunchTemplateVersion(scope *scope.MachinePoolScope, userData []byte) (*expinfrav1.AWSLaunchTemplate, error) {
+func (s *Service) CreateLaunchTemplateVersion(scope *scope.MachinePoolScope, userData []byte) error {
 	s.scope.V(2).Info("creating new launch template version", "machine-pool", scope.Name())
 
 	launchTemplateData, err := s.createLaunchTemplateData(scope, userData)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to form launch template data")
+		return errors.Wrapf(err, "unable to form launch template data")
 	}
 
 	input := &ec2.CreateLaunchTemplateVersionInput{
 		LaunchTemplateData: launchTemplateData,
-		LaunchTemplateName: aws.String(scope.Name()),
+		LaunchTemplateId:   aws.String(scope.AWSMachinePool.Status.LaunchTemplateID),
 	}
 
-	result, err := s.EC2Client.CreateLaunchTemplateVersion(input)
+	_, err = s.EC2Client.CreateLaunchTemplateVersion(input)
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			s.scope.Info("", "aerr", aerr.Error())
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			s.scope.Info("", "error", err.Error())
-		}
+		return errors.Wrapf(err, "unable to create launch template version")
 	}
 
-	s.scope.Info("launch template updated", "version", result.LaunchTemplateVersion.VersionNumber)
-
-	return nil, nil
+	return nil
 }
 
 func (s *Service) createLaunchTemplateData(scope *scope.MachinePoolScope, userData []byte) (*ec2.RequestLaunchTemplateData, error) {

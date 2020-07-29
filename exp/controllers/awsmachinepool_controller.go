@@ -387,7 +387,7 @@ func (r *AWSMachinePoolReconciler) reconcileLaunchTemplate(machinePoolScope *sco
 	}
 	if needsUpdate {
 		machinePoolScope.Info("creating new version for launch template", "existing", launchTemplate, "incoming", machinePoolScope.AWSMachinePool.Spec.AWSLaunchTemplate)
-		if _, err := ec2svc.CreateLaunchTemplateVersion(machinePoolScope, userData); err != nil {
+		if err := ec2svc.CreateLaunchTemplateVersion(machinePoolScope, userData); err != nil {
 			return err
 		}
 	}
