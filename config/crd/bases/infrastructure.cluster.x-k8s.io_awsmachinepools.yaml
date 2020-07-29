@@ -186,16 +186,20 @@ spec:
                     description: InstancesDistribution from describe-auto-scaling-groups
                     properties:
                       onDemandAllocationStrategy:
+                        default: prioritized
                         enum:
                         - prioritized
                         type: string
                       onDemandBaseCapacity:
+                        default: 0
                         format: int64
                         type: integer
                       onDemandPercentageAboveBaseCapacity:
+                        default: 100
                         format: int64
                         type: integer
                       spotAllocationStrategy:
+                        default: lowest-price
                         enum:
                         - lowest-price
                         - capacity-optimized
