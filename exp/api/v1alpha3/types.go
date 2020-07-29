@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha3
 
 import (
+	"k8s.io/apimachinery/pkg/util/sets"
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 )
 
@@ -125,9 +126,9 @@ type AutoScalingGroup struct {
 	Subnets         []string          `json:"subnets,omitempty"`
 
 	MixedInstancesPolicy *MixedInstancesPolicy `json:"mixedInstancesPolicy,omitempty"`
-
-	Status    ASGStatus
-	Instances []infrav1.Instance `json:"instances,omitempty"`
+	State                ASGState              `json:"asgState,omitempty"` //TODO: Is this the same as status?
+	Status               ASGStatus
+	Instances            []infrav1.Instance `json:"instances,omitempty"`
 }
 
 // ASGStatus is a status string returned by the autoscaling API
@@ -154,3 +155,53 @@ func LaunchTemplateNeedsUpdate(incoming *AWSLaunchTemplate, existing *AWSLaunchT
 
 	return false
 }
+
+// ASGState contains the state of the ASG. e.g. pending, running, etc
+type ASGState string
+
+//TODO: maybe make it match this more? https://docs.aws.amazon.com/autoscaling/ec2/userguide/AutoScalingGroupLifecycle.html
+var (
+	// ASGStatePending is the string representing an ASG in a pending state
+	ASGStatePending = ASGState("pending")
+
+	// ASGStateRunning is the string representing an ASG in a pending state
+	ASGStateRunning = ASGState("running")
+
+	// ASGStateShuttingDown is the string representing an ASG shutting down
+	ASGStateShuttingDown = ASGState("shutting-down")
+
+	// ASGStateTerminated is the string representing an ASG that has been terminated
+	ASGStateTerminated = ASGState("terminated")
+
+	// ASGStateStopping is the string representing an ASG
+	// that is in the process of being stopped and can be restarted
+	ASGStateStopping = ASGState("stopping")
+
+	// ASGStateStopped is the string representing an ASG
+	// that has been stopped and can be restarted
+	ASGStateStopped = ASGState("stopped")
+
+	// ASGRunningStates defines the set of states in which an EC2 ASG is
+	// running or going to be running soon
+	ASGRunningStates = sets.NewString(
+		string(ASGStatePending),
+		string(ASGStateRunning),
+	)
+
+	// ASGOperationalStates defines the set of states in which an EC2 ASG is
+	// or can return to running, and supports all EC2 operations
+	ASGOperationalStates = ASGRunningStates.Union(
+		sets.NewString(
+			string(ASGStateStopping),
+			string(ASGStateStopped),
+		),
+	)
+
+	// ASGKnownStates represents all known ASG states
+	ASGKnownStates = ASGOperationalStates.Union(
+		sets.NewString(
+			string(ASGStateShuttingDown),
+			string(ASGStateTerminated),
+		),
+	)
+)
