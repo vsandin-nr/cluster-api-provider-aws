@@ -154,9 +154,7 @@ func (m *MachinePoolScope) PatchObject() error {
 		context.TODO(),
 		m.AWSMachinePool,
 		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
-			infrav1.InstanceReadyCondition,
-			infrav1.SecurityGroupsReadyCondition,
-			infrav1.ELBAttachedCondition,
+			expinfrav1.ASGReadyCondition,
 		}})
 }
 
