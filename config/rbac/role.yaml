@@ -53,26 +53,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - exp.infrastructure.cluster.x-k8s.io
-  resources:
-  - awsmachinepools
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - exp.infrastructure.cluster.x-k8s.io
-  resources:
-  - awsmachinepools/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
   - infrastructure.cluster.x-k8s.io
   resources:
   - awsclusters
@@ -88,6 +68,26 @@ rules:
   - infrastructure.cluster.x-k8s.io
   resources:
   - awsclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - awsmachinepools
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - awsmachinepools/status
   verbs:
   - get
   - patch
