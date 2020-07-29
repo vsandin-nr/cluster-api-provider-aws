@@ -311,6 +311,8 @@ func (r *AWSMachinePoolReconciler) reconcileDelete(machinePoolScope *scope.Machi
 		return ctrl.Result{}, errors.Wrap(err, "failed to delete ASG")
 	}
 
+	machinePoolScope.Info("successfully deleted AutoScalingGroup and Launch Template")
+
 	// remove finalizer
 	controllerutil.RemoveFinalizer(machinePoolScope.AWSMachinePool, expinfrav1.MachinePoolFinalizer)
 

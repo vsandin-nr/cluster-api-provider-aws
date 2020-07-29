@@ -140,8 +140,6 @@ func (s *Service) GetASGByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoS
 
 // CreateASG runs an autoscaling group.
 func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error) {
-	s.scope.Info("Creating AutoScalingGroup")
-
 	input := &expinfrav1.AutoScalingGroup{
 		Name:                 scope.Name(),
 		MaxSize:              scope.AWSMachinePool.Spec.MaxSize,
