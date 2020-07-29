@@ -155,9 +155,11 @@ func (r *AWSMachinePoolReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, r
 		conditions.SetSummary(machinePoolScope.AWSMachinePool,
 			conditions.WithConditions(
 				expinfrav1.ASGReadyCondition,
+				expinfrav1.LaunchTemplateReadyCondition,
 			),
 			conditions.WithStepCounterIfOnly(
 				expinfrav1.ASGReadyCondition,
+				expinfrav1.LaunchTemplateReadyCondition,
 			),
 		)
 

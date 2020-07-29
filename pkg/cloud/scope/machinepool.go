@@ -155,6 +155,7 @@ func (m *MachinePoolScope) PatchObject() error {
 		m.AWSMachinePool,
 		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
 			expinfrav1.ASGReadyCondition,
+			expinfrav1.LaunchTemplateReadyCondition,
 		}})
 }
 
