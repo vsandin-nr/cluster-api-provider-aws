@@ -25,7 +25,6 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gstruct"
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -226,42 +225,11 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 			})
 		})
 
-		//TODO:
-		// The current state of the group when the DeleteAutoScalingGroup operation
-		// is in progress. in type Group struct {}
-		//  Status *string `min:"1" type:"string"`
-		// Check out output of describe autoscaling groups
-
 		When("ASG creation succeeds", func() {
-			var asg *expinfrav1.AutoScalingGroup
 			BeforeEach(func() {
-				asg = &expinfrav1.AutoScalingGroup{
-					ID: "myMachinePool",
-				}
-				asg.State = expinfrav1.ASGStatePending
-
 				ec2Svc.EXPECT().GetLaunchTemplate(gomock.Any()).Return(nil, nil).AnyTimes()
 				ec2Svc.EXPECT().CreateLaunchTemplate(gomock.Any(), gomock.Any()).Return("", nil).AnyTimes()
 				asgSvc.EXPECT().GetASGByName(gomock.Any()).Return(nil, nil).AnyTimes()
-
-				// ec2Svc.EXPECT().GetRunningInstanceByTags(gomock.Any()).Return(nil, nil)
-				// ec2Svc.EXPECT().CreateInstance(gomock.Any(), gomock.Any()).Return(asg, nil)
-			})
-
-			//TODO: make this pass in machinepool_controller.go
-			Context("New ASG state", func() {
-				It("should error when the instance state is a new unseen one", func() {
-					buf := new(bytes.Buffer)
-					klog.SetOutput(buf)
-					asg.State = "NewAWSMachinePoolState"
-					asgSvc.EXPECT().CreateASG(gomock.Any()).Return(asg, nil)
-					_, _ = reconciler.reconcileNormal(context.Background(), ms, cs)
-					Expect(ms.AWSMachinePool.Status.Ready).To(Equal(false))
-					Expect(buf.String()).To(ContainSubstring(("ASG state is undefined")))
-					Eventually(recorder.Events).Should(Receive(ContainSubstring("ASGUnhandledState")))
-					Expect(ms.AWSMachinePool.Status.FailureMessage).To(PointTo(Equal("ASG state \"NewAWSMachinePoolState\" is undefined")))
-					expectConditions(ms.AWSMachinePool, []conditionAssertion{{conditionType: expinfrav1.ASGReadyCondition, status: corev1.ConditionUnknown}})
-				})
 			})
 		})
 	})
