@@ -35,6 +35,10 @@ import (
 // GetLaunchTemplate returns the existing LaunchTemplate or nothing if it doesn't exist.
 // For now by name until we need the input to be something different
 func (s *Service) GetLaunchTemplate(id string) (*expinfrav1.AWSLaunchTemplate, error) {
+	if id == "" {
+		return nil, nil
+	}
+
 	s.scope.V(2).Info("Looking for existing LaunchTemplates")
 
 	input := &ec2.DescribeLaunchTemplateVersionsInput{
