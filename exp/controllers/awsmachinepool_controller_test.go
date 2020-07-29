@@ -140,8 +140,6 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 	})
 
 	Context("Reconciling an AWSMachinePool", func() {
-		// var launchtemplate *expinfrav1.AWSLaunchTemplate
-
 		When("we can't reach amazon", func() {
 			expectedErr := errors.New("no connection available ")
 
@@ -191,11 +189,6 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 				Expect(buf.String()).To(ContainSubstring("Bootstrap data secret reference is not yet available"))
 				expectConditions(ms.AWSMachinePool, []conditionAssertion{{expinfrav1.ASGReadyCondition, corev1.ConditionFalse, clusterv1.ConditionSeverityInfo, infrav1.WaitingForBootstrapDataReason}})
 			})
-
-			It("should return an error when we can't list instances by tags", func() {
-				_, err := reconciler.reconcileNormal(context.Background(), ms, cs)
-				Expect(errors.Cause(err)).To(MatchError(expectedErr))
-			})
 		})
 
 		When("there's a provider ID", func() {
@@ -209,7 +202,8 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 
 			It("it should look up by provider ID when one exists", func() {
 				expectedErr := errors.New("no connection available ")
-				ec2Svc.EXPECT().GetLaunchTemplate(gomock.Any()).Return(nil, expectedErr)
+				var launchtemplate *expinfrav1.AWSLaunchTemplate
+				ec2Svc.EXPECT().GetLaunchTemplate(gomock.Any()).Return(launchtemplate, expectedErr)
 				_, err := reconciler.reconcileNormal(context.Background(), ms, cs)
 				Expect(errors.Cause(err)).To(MatchError(expectedErr))
 			})
