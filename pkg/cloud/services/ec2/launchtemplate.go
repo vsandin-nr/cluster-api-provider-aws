@@ -54,11 +54,11 @@ func (s *Service) GetLaunchTemplate(id string) (*expinfrav1.AWSLaunchTemplate, e
 		s.scope.Info("", "aerr", err.Error())
 	}
 
-	for _, version := range out.LaunchTemplateVersions {
-		return s.SDKToLaunchTemplate(version)
+	if len(out.LaunchTemplateVersions) == 0 {
+		return nil, nil
 	}
 
-	return nil, nil
+	return s.SDKToLaunchTemplate(out.LaunchTemplateVersions[0])
 }
 
 // CreateLaunchTemplate generates a launch template to be used with the autoscaling group
@@ -152,7 +152,6 @@ func (s *Service) createLaunchTemplateData(scope *scope.MachinePoolScope, userDa
 	for _, additionalGroup := range scope.AWSMachinePool.Spec.AWSLaunchTemplate.AdditionalSecurityGroups {
 		data.SecurityGroupIds = append(data.SecurityGroupIds, additionalGroup.ID)
 	}
-	s.scope.Info("Security Groups", "security groups", data.SecurityGroupIds)
 
 	// Pick image from the machinepool configuration, or use a default one.
 	if lt.AMI.ID != nil { // nolint:nestif
