@@ -189,7 +189,7 @@ func (r *AWSMachinePoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope) (ctrl.Result, error) {
-	clusterScope.Info("Reconciling AWSMachine")
+	clusterScope.Info("Reconciling AWSMachinePool")
 
 	// todo: check for failure state, return early
 
@@ -314,10 +314,8 @@ func (r *AWSMachinePoolReconciler) reconcileDelete(machinePoolScope *scope.Machi
 }
 
 func (r *AWSMachinePoolReconciler) updatePool(machinePoolScope *scope.MachinePoolScope, clusterScope *scope.ClusterScope, existingASG *expinfrav1.AutoScalingGroup) error {
-	machinePoolScope.Info("checking if ASG needs updates")
-
 	if asgNeedsUpdates(machinePoolScope, existingASG) {
-		machinePoolScope.Info("updating ASG")
+		machinePoolScope.Info("updating AutoScalingGroup")
 		asgSvc := r.getASGService(clusterScope)
 
 		if err := asgSvc.UpdateASG(machinePoolScope); err != nil {
@@ -344,8 +342,6 @@ func (r *AWSMachinePoolReconciler) createPool(machinePoolScope *scope.MachinePoo
 }
 
 func (r *AWSMachinePoolReconciler) findASG(machinePoolScope *scope.MachinePoolScope, asgsvc services.ASGInterface) (*expinfrav1.AutoScalingGroup, error) {
-	machinePoolScope.Info("Finding ASG")
-
 	// Query the instance using tags.
 	asg, err := asgsvc.GetASGByName(machinePoolScope)
 	if err != nil {
@@ -391,7 +387,7 @@ func (r *AWSMachinePoolReconciler) reconcileLaunchTemplate(machinePoolScope *sco
 
 // asgNeedsUpdates compares incoming AWSMachinePool and compares against existing ASG
 func asgNeedsUpdates(machinePoolScope *scope.MachinePoolScope, existingASG *expinfrav1.AutoScalingGroup) bool {
-	if machinePoolScope.MachinePool.Spec.Replicas != existingASG.DesiredCapacity {
+	if machinePoolScope.MachinePool.Spec.Replicas != nil && machinePoolScope.MachinePool.Spec.Replicas != existingASG.DesiredCapacity {
 		return true
 	}
 

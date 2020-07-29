@@ -119,7 +119,7 @@ func (s *Service) ASGIfExists(name *string) (*expinfrav1.AutoScalingGroup, error
 
 // GetASGByName returns the existing ASG or nothing if it doesn't exist.
 func (s *Service) GetASGByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error) {
-	s.scope.Info("Looking for existing machine instance by tags")
+	s.scope.V(2).Info("Looking for existing AutoScalingGroup by name")
 
 	input := &autoscaling.DescribeAutoScalingGroupsInput{
 		AutoScalingGroupNames: []*string{
@@ -144,7 +144,7 @@ func (s *Service) GetASGByName(scope *scope.MachinePoolScope) (*expinfrav1.AutoS
 
 // CreateASG runs an autoscaling group.
 func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScalingGroup, error) {
-	s.scope.Info("Creating an autoscaling group for a machine pool")
+	s.scope.Info("Creating AutoScalingGroup")
 
 	input := &expinfrav1.AutoScalingGroup{
 		Name:                 scope.Name(),
