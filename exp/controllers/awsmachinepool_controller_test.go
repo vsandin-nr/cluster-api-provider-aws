@@ -58,7 +58,7 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 	)
 
 	BeforeEach(func() {
-		var err error //TODO: check out LogToOutput
+		var err error
 
 		if err := flag.Set("logtostderr", "false"); err != nil {
 			_ = fmt.Errorf("Error setting logtostderr flag")
