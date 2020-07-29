@@ -215,9 +215,9 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 				Expect(errors.Cause(err)).To(MatchError(expectedErr))
 			})
 
-			It("should try to create a new machine if none exists", func() {
+			It("should try to create a new machinepool if none exists", func() {
 				expectedErr := errors.New("Invalid instance")
-				ec2Svc.EXPECT().InstanceIfExists(gomock.Any()).Return(nil, nil).AnyTimes()
+				asgSvc.EXPECT().ASGIfExists(gomock.Any()).Return(nil, nil).AnyTimes()
 				ec2Svc.EXPECT().GetLaunchTemplate(gomock.Any()).Return(nil, nil)
 				ec2Svc.EXPECT().CreateLaunchTemplate(gomock.Any(), gomock.Any()).Return("", expectedErr).AnyTimes()
 
@@ -230,12 +230,13 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 		// The current state of the group when the DeleteAutoScalingGroup operation
 		// is in progress. in type Group struct {}
 		//  Status *string `min:"1" type:"string"`
+		// Check out output of describe autoscaling groups
 
 		When("ASG creation succeeds", func() {
 			var asg *expinfrav1.AutoScalingGroup
 			BeforeEach(func() {
 				asg = &expinfrav1.AutoScalingGroup{
-					ID: "myMachine",
+					ID: "myMachinePool",
 				}
 				asg.State = expinfrav1.ASGStatePending
 
@@ -250,7 +251,7 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 
 				It("should set attributes after creating an instance", func() {
 					_, _ = reconciler.reconcileNormal(context.Background(), ms, cs)
-					// Expect(ms.AWSMachinePool.Spec.ProviderID).To(PointTo(Equal("aws:////myMachine")))
+					Expect(ms.AWSMachinePool.Spec.ProviderID).To(PointTo(Equal("aws:////myMachine")))
 					Expect(ms.AWSMachinePool.Annotations).To(Equal(map[string]string{"cluster-api-provider-aws": "true"}))
 				})
 
@@ -291,10 +292,10 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 					asg.State = "NewAWSMachinePoolState"
 					_, _ = reconciler.reconcileNormal(context.Background(), ms, cs)
 					Expect(ms.AWSMachinePool.Status.Ready).To(Equal(false))
-					Expect(buf.String()).To(ContainSubstring(("EC2 instance state is undefined")))
-					Eventually(recorder.Events).Should(Receive(ContainSubstring("InstanceUnhandledState")))
-					Expect(ms.AWSMachinePool.Status.FailureMessage).To(PointTo(Equal("EC2 instance state \"NewAWSMachineState\" is undefined")))
-					expectConditions(ms.AWSMachinePool, []conditionAssertion{{conditionType: infrav1.InstanceReadyCondition, status: corev1.ConditionUnknown}})
+					Expect(buf.String()).To(ContainSubstring(("ASG state is undefined")))
+					Eventually(recorder.Events).Should(Receive(ContainSubstring("ASGUnhandledState")))
+					Expect(ms.AWSMachinePool.Status.FailureMessage).To(PointTo(Equal("ASG state \"NewAWSMachinePoolState\" is undefined")))
+					expectConditions(ms.AWSMachinePool, []conditionAssertion{{conditionType: expinfrav1.ASGReadyCondition, status: corev1.ConditionUnknown}})
 				})
 			})
 
@@ -343,42 +344,43 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 				})
 			})
 
-			When("temporarily stopping then starting the AWSMachine", func() {
-				var buf *bytes.Buffer
-				BeforeEach(func() {
-					buf = new(bytes.Buffer)
-					klog.SetOutput(buf)
-					ec2Svc.EXPECT().GetInstanceSecurityGroups(gomock.Any()).
-						Return(map[string][]string{"eid": {}}, nil).Times(1)
-					ec2Svc.EXPECT().GetCoreSecurityGroups(gomock.Any()).Return([]string{}, nil).Times(1)
-				})
+			// Not relevant
+			// When("temporarily stopping then starting the AWSMachinePool", func() {
+			// 	var buf *bytes.Buffer
+			// 	BeforeEach(func() {
+			// 		buf = new(bytes.Buffer)
+			// 		klog.SetOutput(buf)
+			// 		ec2Svc.EXPECT().GetInstanceSecurityGroups(gomock.Any()).
+			// 			Return(map[string][]string{"eid": {}}, nil).Times(1)
+			// 		ec2Svc.EXPECT().GetCoreSecurityGroups(gomock.Any()).Return([]string{}, nil).Times(1)
+			// 	})
 
-				It("should set instance to stopping and unready", func() {
-					asg.State = expinfrav1.ASGStateStopping
-					_, _ = reconciler.reconcileNormal(context.Background(), ms, cs)
-					Expect(ms.AWSMachinePool.Status.ASGState).To(PointTo(Equal(expinfrav1.ASGStateStopping)))
-					Expect(ms.AWSMachinePool.Status.Ready).To(Equal(false))
-					Expect(buf.String()).To(ContainSubstring(("EC2 instance state changed")))
-					expectConditions(ms.AWSMachinePool, []conditionAssertion{{infrav1.InstanceReadyCondition, corev1.ConditionFalse, clusterv1.ConditionSeverityError, infrav1.InstanceStoppedReason}})
-				})
+			// 	It("should set instance to stopping and unready", func() {
+			// 		asg.State = expinfrav1.ASGStateStopping
+			// 		_, _ = reconciler.reconcileNormal(context.Background(), ms, cs)
+			// 		Expect(ms.AWSMachinePool.Status.ASGState).To(PointTo(Equal(expinfrav1.ASGStateStopping)))
+			// 		Expect(ms.AWSMachinePool.Status.Ready).To(Equal(false))
+			// 		Expect(buf.String()).To(ContainSubstring(("EC2 instance state changed")))
+			// 		expectConditions(ms.AWSMachinePool, []conditionAssertion{{infrav1.InstanceReadyCondition, corev1.ConditionFalse, clusterv1.ConditionSeverityError, infrav1.InstanceStoppedReason}})
+			// 	})
 
-				It("should then set instance to stopped and not ready", func() {
-					asg.State = expinfrav1.ASGStateStopped
-					_, _ = reconciler.reconcileNormal(context.Background(), ms, cs)
-					Expect(ms.AWSMachinePool.Status.ASGState).To(PointTo(Equal(infrav1.InstanceStateStopped)))
-					Expect(ms.AWSMachinePool.Status.Ready).To(Equal(false))
-					Expect(buf.String()).To(ContainSubstring(("EC2 instance state changed")))
-					expectConditions(ms.AWSMachinePool, []conditionAssertion{{infrav1.InstanceReadyCondition, corev1.ConditionFalse, clusterv1.ConditionSeverityError, infrav1.InstanceStoppedReason}})
-				})
+			// 	It("should then set instance to stopped and not ready", func() {
+			// 		asg.State = expinfrav1.ASGStateStopped
+			// 		_, _ = reconciler.reconcileNormal(context.Background(), ms, cs)
+			// 		Expect(ms.AWSMachinePool.Status.ASGState).To(PointTo(Equal(infrav1.InstanceStateStopped)))
+			// 		Expect(ms.AWSMachinePool.Status.Ready).To(Equal(false))
+			// 		Expect(buf.String()).To(ContainSubstring(("EC2 instance state changed")))
+			// 		expectConditions(ms.AWSMachinePool, []conditionAssertion{{infrav1.InstanceReadyCondition, corev1.ConditionFalse, clusterv1.ConditionSeverityError, infrav1.InstanceStoppedReason}})
+			// 	})
 
-				It("should then set instance to running and ready once it is restarted", func() {
-					asg.State = expinfrav1.ASGStateRunning
-					_, _ = reconciler.reconcileNormal(context.Background(), ms, cs)
-					Expect(ms.AWSMachinePool.Status.ASGState).To(PointTo(Equal(expinfrav1.ASGStateRunning)))
-					Expect(ms.AWSMachinePool.Status.Ready).To(Equal(true))
-					Expect(buf.String()).To(ContainSubstring(("ASG state changed")))
-				})
-			})
+			// 	It("should then set instance to running and ready once it is restarted", func() {
+			// 		asg.State = expinfrav1.ASGStateRunning
+			// 		_, _ = reconciler.reconcileNormal(context.Background(), ms, cs)
+			// 		Expect(ms.AWSMachinePool.Status.ASGState).To(PointTo(Equal(expinfrav1.ASGStateRunning)))
+			// 		Expect(ms.AWSMachinePool.Status.Ready).To(Equal(true))
+			// 		Expect(buf.String()).To(ContainSubstring(("ASG state changed")))
+			// 	})
+			// })
 
 			When("deleting the AWSMachinePool outside of Kubernetes", func() {
 				var buf *bytes.Buffer
@@ -387,7 +389,7 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 					klog.SetOutput(buf)
 				})
 
-				It("should warn if an instance is shutting-down", func() {
+				It("should warn if an instance is deleting", func() {
 					asg.State = expinfrav1.ASGStateShuttingDown
 					_, _ = reconciler.reconcileNormal(context.Background(), ms, cs)
 					Expect(ms.AWSMachinePool.Status.Ready).To(Equal(false))
@@ -395,7 +397,7 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 					Eventually(recorder.Events).Should(Receive(ContainSubstring("UnexpectedTermination")))
 				})
 
-				It("should error when the instance is seen as terminated", func() {
+				It("should error when the ASG is seen as terminated", func() {
 					asg.State = expinfrav1.ASGStateTerminated
 					_, _ = reconciler.reconcileNormal(context.Background(), ms, cs)
 					Expect(ms.AWSMachinePool.Status.Ready).To(Equal(false))
@@ -408,6 +410,7 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 		})
 	})
 
+	// TODO: Not relevant remove?
 	// Context("secrets management lifecycle", func() {
 	// 	var instance *infrav1.Instance
 	// 	secretPrefix := "test/secret"
@@ -545,63 +548,70 @@ var _ = Describe("AWSMachinePoolReconciler", func() {
 	// 	})
 	// })
 
-	// Context("deleting an AWSMachine", func() {
-	// 	BeforeEach(func() {
-	// 		ms.AWSMachinePool.Finalizers = []string{
-	// 			infrav1.MachinePoolFinalizer,
-	// 			metav1.FinalizerDeleteDependents,
-	// 		}
-	// 	})
+	Context("deleting an AWSMachinePool", func() {
+		BeforeEach(func() {
+			ms.AWSMachinePool.Finalizers = []string{
+				expinfrav1.MachinePoolFinalizer,
+				metav1.FinalizerDeleteDependents,
+			}
+		})
 
-	// 	It("should exit immediately on an error state", func() {
-	// 		expectedErr := errors.New("no connection available ")
-	// 		ec2Svc.EXPECT().GetRunningInstanceByTags(gomock.Any()).Return(nil, expectedErr).AnyTimes()
+		It("should exit immediately on an error state", func() {
+			expectedErr := errors.New("no connection available ")
+			asgSvc.EXPECT().GetASGByName(gomock.Any()).Return(nil, expectedErr).AnyTimes()
 
-	// 		_, err := reconciler.reconcileDelete(ms, cs)
-	// 		Expect(errors.Cause(err)).To(MatchError(expectedErr))
-	// 	})
+			_, err := reconciler.reconcileDelete(ms, cs)
+			Expect(errors.Cause(err)).To(MatchError(expectedErr))
+		})
 
-	// 	It("should log and remove finalizer when no machine exists", func() {
-	// 		ec2Svc.EXPECT().GetRunningInstanceByTags(gomock.Any()).Return(nil, nil)
+		It("should log and remove finalizer when no machine exists", func() {
+			expectedErr := errors.New("no connection available ")
+			asgSvc.EXPECT().GetASGByName(gomock.Any()).Return(nil, nil)
+			ec2Svc.EXPECT().GetLaunchTemplate(gomock.Any()).Return(nil, expectedErr).AnyTimes()
 
-	// 		buf := new(bytes.Buffer)
-	// 		klog.SetOutput(buf)
+			buf := new(bytes.Buffer)
+			klog.SetOutput(buf)
 
-	// 		_, err := reconciler.reconcileDelete(ms, cs)
-	// 		Expect(err).To(BeNil())
-	// 		Expect(buf.String()).To(ContainSubstring("Unable to locate EC2 instance by ID or tags"))
-	// 		Expect(ms.AWSMachinePool.Finalizers).To(ConsistOf(metav1.FinalizerDeleteDependents))
-	// 		Eventually(recorder.Events).Should(Receive(ContainSubstring("NoInstanceFound")))
-	// 	})
+			_, err := reconciler.reconcileDelete(ms, cs)
+			Expect(err).To(BeNil())
+			Expect(buf.String()).To(ContainSubstring("Unable to locate ASG by name"))
+			Expect(ms.AWSMachinePool.Finalizers).To(ConsistOf(metav1.FinalizerDeleteDependents))
+			Eventually(recorder.Events).Should(Receive(ContainSubstring("NoASGFound")))
+		})
 
-	// 	It("should ignore instances in shutting down state", func() {
-	// 		ec2Svc.EXPECT().GetRunningInstanceByTags(gomock.Any()).Return(&infrav1.Instance{
-	// 			State: infrav1.InstanceStateShuttingDown,
-	// 		}, nil)
+		// TODO: remove? Irrelevant?
+		// It("should ignore instances in shutting down state", func() {
+		// 	ec2Svc.EXPECT().GetRunningInstanceByTags(gomock.Any()).Return(&infrav1.Instance{
+		// 		State: infrav1.InstanceStateShuttingDown,
+		// 	}, nil)
+		// 	asgSvc.EXPECT().GetASGByName(gomock.Any()).Return(nil, nil)
 
-	// 		buf := new(bytes.Buffer)
-	// 		klog.SetOutput(buf)
+		// 	buf := new(bytes.Buffer)
+		// 	klog.SetOutput(buf)
 
-	// 		_, err := reconciler.reconcileDelete(ms, cs)
-	// 		Expect(err).To(BeNil())
-	// 		Expect(buf.String()).To(ContainSubstring("EC2 instance is shutting down or already terminated"))
-	// 		Expect(ms.AWSMachinePool.Finalizers).To(ConsistOf(metav1.FinalizerDeleteDependents))
-	// 	})
+		// 	_, err := reconciler.reconcileDelete(ms, cs)
+		// 	Expect(err).To(BeNil())
+		// 	Expect(buf.String()).To(ContainSubstring("EC2 instance is shutting down or already terminated"))
+		// 	Expect(ms.AWSMachinePool.Finalizers).To(ConsistOf(metav1.FinalizerDeleteDependents))
+		// })
 
-	// 	It("should ignore instances in terminated down state", func() {
-	// 		ec2Svc.EXPECT().GetRunningInstanceByTags(gomock.Any()).Return(&infrav1.Instance{
-	// 			State: infrav1.InstanceStateTerminated,
-	// 		}, nil)
+		// It("should ignore instances in terminated down state", func() {
+		// 	ec2Svc.EXPECT().GetRunningInstanceByTags(gomock.Any()).Return(&infrav1.Instance{
+		// 		State: infrav1.InstanceStateTerminated,
+		// 	}, nil)
 
-	// 		buf := new(bytes.Buffer)
-	// 		klog.SetOutput(buf)
+		// 	buf := new(bytes.Buffer)
+		// 	klog.SetOutput(buf)
 
-	// 		_, err := reconciler.reconcileDelete(ms, cs)
-	// 		Expect(err).To(BeNil())
-	// 		Expect(buf.String()).To(ContainSubstring("EC2 instance is shutting down or already terminated"))
-	// 		Expect(ms.AWSMachinePool.Finalizers).To(ConsistOf(metav1.FinalizerDeleteDependents))
-	// 	})
+		// 	_, err := reconciler.reconcileDelete(ms, cs)
+		// 	Expect(err).To(BeNil())
+		// 	Expect(buf.String()).To(ContainSubstring("EC2 instance is shutting down or already terminated"))
+		// 	Expect(ms.AWSMachinePool.Finalizers).To(ConsistOf(metav1.FinalizerDeleteDependents))
+		// })
 
+	})
+
+	//TODO: remove? Irrelevant
 	// 	Context("Instance not shutting down yet", func() {
 	// 		id := "aws:////myid"
 
