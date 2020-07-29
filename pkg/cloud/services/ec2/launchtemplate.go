@@ -18,6 +18,8 @@ package ec2
 
 import (
 	"encoding/base64"
+	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -38,6 +40,7 @@ func (s *Service) GetLaunchTemplate(id string) (*expinfrav1.AWSLaunchTemplate, e
 
 	input := &ec2.DescribeLaunchTemplateVersionsInput{
 		LaunchTemplateId: aws.String(id),
+		Versions:         aws.StringSlice([]string{expinfrav1.LaunchTemplateLatestVersion}),
 	}
 
 	out, err := s.EC2Client.DescribeLaunchTemplateVersions(input)
@@ -151,7 +154,7 @@ func (s *Service) createLaunchTemplateData(scope *scope.MachinePoolScope, userDa
 	}
 
 	// add additional security groups as well
-	for _, additionalGroup := range scope.AWSMachinePool.Spec.AdditionalSecurityGroups {
+	for _, additionalGroup := range scope.AWSMachinePool.Spec.AWSLaunchTemplate.AdditionalSecurityGroups {
 		data.SecurityGroupIds = append(data.SecurityGroupIds, additionalGroup.ID)
 	}
 	s.scope.Info("Security Groups", "security groups", data.SecurityGroupIds)
@@ -277,5 +280,51 @@ func (s *Service) SDKToLaunchTemplate(d *ec2.LaunchTemplateVersion) (*expinfrav1
 		i.NetworkInterfaces = append(i.NetworkInterfaces, *tmp)
 	}
 
+	for _, id := range v.SecurityGroupIds {
+		// This will include the core security groups as well, making the "Additional" a bit
+		// dishonest. However, including the core groups drastically simplifies comparison with
+		// the incoming security groups.
+		i.AdditionalSecurityGroups = append(i.AdditionalSecurityGroups, infrav1.AWSResourceReference{ID: id})
+	}
+
 	return i, nil
+}
+
+// LaunchTemplateNeedsUpdate checks if a new launch template version is needed
+func (s *Service) LaunchTemplateNeedsUpdate(incoming *expinfrav1.AWSLaunchTemplate, existing *expinfrav1.AWSLaunchTemplate) (bool, error) {
+	if incoming.IamInstanceProfile != existing.IamInstanceProfile {
+		return true, nil
+	}
+
+	if incoming.InstanceType != existing.InstanceType {
+		return true, nil
+	}
+
+	incomingIDs := make([]string, len(incoming.AdditionalSecurityGroups))
+	for i, ref := range incoming.AdditionalSecurityGroups {
+		incomingIDs[i] = aws.StringValue(ref.ID)
+	}
+
+	coreIDs, err := s.GetCoreNodeSecurityGroups()
+	if err != nil {
+		return false, err
+	}
+
+	incomingIDs = append(incomingIDs, coreIDs...)
+
+	existingIDs := make([]string, len(existing.AdditionalSecurityGroups))
+	for i, ref := range existing.AdditionalSecurityGroups {
+		existingIDs[i] = aws.StringValue(ref.ID)
+	}
+
+	sort.Strings(incomingIDs)
+	sort.Strings(existingIDs)
+
+	if !reflect.DeepEqual(incomingIDs, existingIDs) {
+		return true, nil
+	}
+
+	// todo: tags
+
+	return false, nil
 }

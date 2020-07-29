@@ -199,6 +199,21 @@ func (mr *MockEC2MachineInterfaceMockRecorder) InstanceIfExists(arg0 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceIfExists", reflect.TypeOf((*MockEC2MachineInterface)(nil).InstanceIfExists), arg0)
 }
 
+// LaunchTemplateNeedsUpdate mocks base method
+func (m *MockEC2MachineInterface) LaunchTemplateNeedsUpdate(arg0, arg1 *v1alpha30.AWSLaunchTemplate) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LaunchTemplateNeedsUpdate", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LaunchTemplateNeedsUpdate indicates an expected call of LaunchTemplateNeedsUpdate
+func (mr *MockEC2MachineInterfaceMockRecorder) LaunchTemplateNeedsUpdate(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LaunchTemplateNeedsUpdate", reflect.TypeOf((*MockEC2MachineInterface)(nil).LaunchTemplateNeedsUpdate), arg0, arg1)
+}
+
 // TerminateInstance mocks base method
 func (m *MockEC2MachineInterface) TerminateInstance(arg0 string) error {
 	m.ctrl.T.Helper()

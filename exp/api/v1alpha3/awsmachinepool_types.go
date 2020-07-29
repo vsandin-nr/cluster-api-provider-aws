@@ -23,7 +23,8 @@ import (
 )
 
 const (
-	MachinePoolFinalizer = "awsmachinepool.infrastructure.cluster.x-k8s.io"
+	MachinePoolFinalizer        = "awsmachinepool.infrastructure.cluster.x-k8s.io"
+	LaunchTemplateLatestVersion = "$Latest"
 )
 
 // AWSMachinePoolSpec defines the desired state of AWSMachinePool
@@ -45,12 +46,6 @@ type AWSMachinePoolSpec struct {
 	// This field must match the provider IDs as seen on the node objects corresponding to a machine pool's machine instances.
 	// +optional
 	ProviderIDList []string `json:"providerIDList,omitempty"`
-
-	// AdditionalSecurityGroups is an array of references to security groups that should be applied to the
-	// instances. These security groups would be set in addition to any security groups defined
-	// at the cluster level or in the actuator.
-	// +optional
-	AdditionalSecurityGroups []infrav1.AWSResourceReference `json:"additionalSecurityGroups,omitempty"`
 }
 
 // AWSMachinePoolStatus defines the observed state of AWSMachinePool

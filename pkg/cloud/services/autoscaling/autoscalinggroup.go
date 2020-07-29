@@ -30,10 +30,6 @@ import (
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/record"
 )
 
-const (
-	launchTemplateLatestVersion = "$Latest"
-)
-
 // SDKToAutoScalingGroup converts an AWS EC2 SDK AutoScalingGroup to the CAPA AutoScalingGroup type.
 func (s *Service) SDKToAutoScalingGroup(v *autoscaling.Group) (*expinfrav1.AutoScalingGroup, error) {
 	i := &expinfrav1.AutoScalingGroup{
@@ -196,7 +192,7 @@ func (s *Service) runPool(i *expinfrav1.AutoScalingGroup, launchTemplateID strin
 	} else {
 		input.LaunchTemplate = &autoscaling.LaunchTemplateSpecification{
 			LaunchTemplateId: aws.String(launchTemplateID),
-			Version:          aws.String(launchTemplateLatestVersion),
+			Version:          aws.String(expinfrav1.LaunchTemplateLatestVersion),
 		}
 	}
 
@@ -264,7 +260,7 @@ func (s *Service) UpdateASG(scope *scope.MachinePoolScope) error {
 	} else {
 		input.LaunchTemplate = &autoscaling.LaunchTemplateSpecification{
 			LaunchTemplateId: aws.String(scope.AWSMachinePool.Status.LaunchTemplateID),
-			Version:          aws.String(launchTemplateLatestVersion),
+			Version:          aws.String(expinfrav1.LaunchTemplateLatestVersion),
 		}
 	}
 
@@ -280,7 +276,7 @@ func createSDKMixedInstancesPolicy(name string, i *expinfrav1.MixedInstancesPoli
 		LaunchTemplate: &autoscaling.LaunchTemplate{
 			LaunchTemplateSpecification: &autoscaling.LaunchTemplateSpecification{
 				LaunchTemplateName: aws.String(name),
-				Version:            aws.String(launchTemplateLatestVersion),
+				Version:            aws.String(expinfrav1.LaunchTemplateLatestVersion),
 			},
 		},
 	}
