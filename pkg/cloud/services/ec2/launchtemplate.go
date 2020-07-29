@@ -144,7 +144,6 @@ func (s *Service) createLaunchTemplateData(scope *scope.MachinePoolScope, userDa
 	}
 
 	for _, id := range ids {
-		s.scope.Info(id)
 		data.SecurityGroupIds = append(data.SecurityGroupIds, aws.String(id))
 	}
 
