@@ -158,16 +158,13 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 		return nil, errors.New("AWSMachinePool has no LaunchTemplateID for some reason")
 	}
 
-	// TODO: do additional tags
-	s.scope.Info("Running instance")
-	_, err := s.runPool(input, scope.AWSMachinePool.Status.LaunchTemplateID) //TODO: log out for more debugging
-	if err != nil {
+	if err := s.runPool(input, scope.AWSMachinePool.Status.LaunchTemplateID); err != nil {
 		// Only record the failure event if the error is not related to failed dependencies.
 		// This is to avoid spamming failure events since the machine will be requeued by the actuator.
 		// if !awserrors.IsFailedDependency(errors.Cause(err)) {
 		// 	record.Warnf(scope.AWSMachinePool, "FailedCreate", "Failed to create instance: %v", err)
 		// }
-		s.scope.Error(err, "nopeee")
+		s.scope.Error(err, "unable to create AutoScalingGroup")
 		return nil, err
 	}
 	record.Eventf(scope.AWSMachinePool, "SuccessfulCreate", "Created new ASG: %s", scope.Name)
@@ -175,7 +172,7 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 	return nil, nil
 }
 
-func (s *Service) runPool(i *expinfrav1.AutoScalingGroup, launchTemplateID string) (*expinfrav1.AutoScalingGroup, error) {
+func (s *Service) runPool(i *expinfrav1.AutoScalingGroup, launchTemplateID string) error {
 	input := &autoscaling.CreateAutoScalingGroupInput{
 		AutoScalingGroupName: aws.String(i.Name),
 		MaxSize:              aws.Int64(int64(i.MaxSize)),
@@ -196,17 +193,12 @@ func (s *Service) runPool(i *expinfrav1.AutoScalingGroup, launchTemplateID strin
 		}
 	}
 
-	s.scope.Info("Creating AutoScalingGroup")
-
-	out, err := s.ASGClient.CreateAutoScalingGroup(input)
+	_, err := s.ASGClient.CreateAutoScalingGroup(input)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create autoscaling group")
+		return errors.Wrap(err, "failed to create autoscaling group")
 	}
-	s.scope.Info("", "myscope", out)
 
-	// verify ASG was created
-
-	return s.SDKToAutoScalingGroup(&autoscaling.Group{}) //TODO: fill with real one
+	return nil
 }
 
 func (s *Service) DeleteASGAndWait(name string) error {
