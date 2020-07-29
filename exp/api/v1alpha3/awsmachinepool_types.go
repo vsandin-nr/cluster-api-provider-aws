@@ -66,6 +66,9 @@ type AWSMachinePoolStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=awsmachinepools,scope=Namespaced,categories=cluster-api
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready",description="Machine ready status"
+// +kubebuilder:printcolumn:name="Replicas",type="integer",JSONPath=".status.replicas",description="Machine ready status"
+// +kubebuilder:printcolumn:name="LaunchTemplate ID",type="string",JSONPath=".status.launchTemplateID",description="Launch Template ID"
 
 // AWSMachinePool is the Schema for the awsmachinepools API
 type AWSMachinePool struct {

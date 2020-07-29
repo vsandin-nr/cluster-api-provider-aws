@@ -18,7 +18,20 @@ spec:
     singular: awsmachinepool
   scope: Namespaced
   versions:
-  - name: v1alpha3
+  - additionalPrinterColumns:
+    - description: Machine ready status
+      jsonPath: .status.ready
+      name: Ready
+      type: string
+    - description: Machine ready status
+      jsonPath: .status.replicas
+      name: Replicas
+      type: integer
+    - description: Launch Template ID
+      jsonPath: .status.launchTemplateID
+      name: LaunchTemplate ID
+      type: string
+    name: v1alpha3
     schema:
       openAPIV3Schema:
         description: AWSMachinePool is the Schema for the awsmachinepools API
