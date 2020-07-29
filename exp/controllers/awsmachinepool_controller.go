@@ -370,7 +370,7 @@ func (r *AWSMachinePoolReconciler) reconcileLaunchTemplate(machinePoolScope *sco
 	machinePoolScope.Info("checking for existing launch template")
 
 	ec2svc := r.getEC2Service(clusterScope)
-	launchTemplate, err := ec2svc.GetLaunchTemplate(machinePoolScope.Name())
+	launchTemplate, err := ec2svc.GetLaunchTemplate(machinePoolScope.AWSMachinePool.Status.LaunchTemplateID)
 	if err != nil {
 		return err
 	}
