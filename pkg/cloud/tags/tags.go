@@ -141,3 +141,24 @@ func BuildParamsToTagSpecification(ec2ResourceType string, params infrav1.BuildP
 
 	return tagSpec
 }
+
+// Ensure applies the tags if the current tags differ from the params.
+func Ensure(current infrav1.Tags, params *infrav1.BuildParams, fn TagsApplyFunc) error {
+	diff := computeDiff(current, params)
+	if len(diff) > 0 {
+		return fn(params)
+	}
+	return nil
+}
+
+func computeDiff(current infrav1.Tags, buildParams *infrav1.BuildParams) infrav1.Tags {
+	want := infrav1.Build(*buildParams)
+
+	// Some tags could be external set by some external entities
+	// and that means even if there is no change in cluster
+	// managed tags, tags would be updated as "current" and
+	// "want" would be different due to external tags.
+	// This fix makes sure that tags are updated only if
+	// there is a change in cluster managed tags.
+	return want.Difference(current)
+}
