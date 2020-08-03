@@ -156,7 +156,7 @@ func (r *EKSConfigReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, rerr e
 func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigScope) (ctrl.Result, error) {
 
 	if !scope.Cluster.Status.InfrastructureReady {
-		scope.Logger.Info("Cluster infrastructure is not ready, requeueing")
+		scope.Logger.Info("Cluster infrastructure is not ready")
 		conditions.MarkFalse(scope.Config,
 			bootstrapv1.DataSecretAvailableCondition,
 			bootstrapv1.WaitingForClusterInfrastructureReason,
