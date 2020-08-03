@@ -18,9 +18,8 @@ package userdata
 
 import (
 	"bytes"
+	"fmt"
 	"text/template"
-
-	"github.com/pkg/errors"
 )
 
 const (
@@ -40,21 +39,21 @@ func NewNode(input *NodeInput) ([]byte, error) {
 	tm := template.New("Node")
 
 	if _, err := tm.Parse(argsTemplate); err != nil {
-		return nil, errors.Wrap(err, "failed to parse args template")
+		return nil, fmt.Errorf("failed to parse args template: %w", err)
 	}
 
 	if _, err := tm.Parse(kubeletArgsTemplate); err != nil {
-		return nil, errors.Wrap(err, "failed to parse kubeletExtraArgs template")
+		return nil, fmt.Errorf("failed to parse kubeletExtraArgs template: %w", err)
 	}
 
 	t, err := tm.Parse(nodeUserData)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse Node template")
+		return nil, fmt.Errorf("failed to parse Node template: %w", err)
 	}
 
 	var out bytes.Buffer
 	if err := t.Execute(&out, input); err != nil {
-		return nil, errors.Wrapf(err, "failed to generate Node template")
+		return nil, fmt.Errorf("failed to generate Node template: %w", err)
 	}
 
 	return out.Bytes(), nil
