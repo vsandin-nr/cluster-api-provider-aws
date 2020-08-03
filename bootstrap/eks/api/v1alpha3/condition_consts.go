@@ -40,4 +40,11 @@ const (
 	// NOTE: Having the cluster infrastructure ready is a pre-condition for starting to create machines;
 	// the EKSConfig controller ensure this pre-condition is satisfied.
 	WaitingForClusterInfrastructureReason = "WaitingForClusterInfrastructure"
+
+	// WaitingForControlPlaneInitializationReason (Severity=Info) documents a bootstrap secret generation process
+	// waiting for the control plane to be initialized.
+	//
+	// NOTE: This is a pre-condition for starting to create machines;
+	// the EKSConfig controller ensure this pre-condition is satisfied.
+	WaitingForControlPlaneInitializationReason = "WaitingForControlPlaneInitialization"
 )
