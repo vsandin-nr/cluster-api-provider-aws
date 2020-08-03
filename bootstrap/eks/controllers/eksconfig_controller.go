@@ -185,6 +185,7 @@ func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigSc
 	// store userdata as secret
 	if err := r.storeBootstrapData(ctx, scope, userDataScript); err != nil {
 		scope.Error(err, "Failed to store bootstrap data")
+		conditions.MarkFalse(scope.Config, bootstrapv1.DataSecretAvailableCondition, bootstrapv1.DataSecretGenerationFailedReason, clusterv1.ConditionSeverityWarning, "")
 		return ctrl.Result{}, err
 	}
 
