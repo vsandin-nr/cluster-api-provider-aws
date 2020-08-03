@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // log is for logging in this package.
@@ -34,8 +33,6 @@ func (r *EKSConfig) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // (user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // +kubebuilder:webhook:verbs=create;update,path=/validate-bootstrap-cluster-x-k8s-io-v1alpha3-eksconfig,mutating=false,failurePolicy=fail,matchPolicy=Equivalent,groups=bootstrap.cluster.x-k8s.io,resources=eksconfigs,versions=v1alpha3,name=validation.eksconfig.bootstrap.cluster.x-k8s.io,sideEffects=None
-
-var _ webhook.Validator = &EKSConfig{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *EKSConfig) ValidateCreate() error {

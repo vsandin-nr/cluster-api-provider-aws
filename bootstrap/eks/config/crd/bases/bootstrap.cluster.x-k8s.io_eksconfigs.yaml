@@ -18,7 +18,16 @@ spec:
     singular: eksconfig
   scope: Namespaced
   versions:
-  - name: v1alpha3
+  - additionalPrinterColumns:
+    - description: Bootstrap configuration is ready
+      jsonPath: .status.ready
+      name: Ready
+      type: string
+    - description: Name of Secret containing bootstrap data
+      jsonPath: .status.dataSecretName
+      name: DataSecretName
+      type: string
+    name: v1alpha3
     schema:
       openAPIV3Schema:
         description: EKSConfig is the Schema for the eksconfigs API
