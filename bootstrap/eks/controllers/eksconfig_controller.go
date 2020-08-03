@@ -27,14 +27,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/cluster-api/feature"
 	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
+	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	bsutil "sigs.k8s.io/cluster-api/bootstrap/util"
+	expv1 "sigs.k8s.io/cluster-api/exp/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 
@@ -187,10 +192,43 @@ func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigSc
 }
 
 func (r *EKSConfigReconciler) SetupWithManager(mgr ctrl.Manager, option controller.Options) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&bootstrapv1.EKSConfig{}).
 		WithOptions(option).
-		Complete(r)
+		WithEventFilter(predicates.ResourceNotPaused(r.Log)).
+		Watches(
+			&source.Kind{Type: &clusterv1.Machine{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: handler.ToRequestsFunc(r.MachineToBootstrapMapFunc),
+			},
+		)
+
+	if feature.Gates.Enabled(feature.MachinePool) {
+		b = b.Watches(
+			&source.Kind{Type: &expv1.MachinePool{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: handler.ToRequestsFunc(r.MachinePoolToBootstrapMapFunc),
+			},
+		)
+	}
+
+	c, err := b.Build(r)
+	if err != nil {
+		return errors.Wrap(err, "failed setting up with a controller manager")
+	}
+
+	err = c.Watch(
+		&source.Kind{Type: &clusterv1.Cluster{}},
+		&handler.EnqueueRequestsFromMapFunc{
+			ToRequests: handler.ToRequestsFunc(r.ClusterToEKSConfigs),
+		},
+		predicates.ClusterUnpausedAndInfrastructureReady(r.Log),
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed adding watch for Clusters to controller manager")
+	}
+
+	return nil
 }
 
 // storeBootstrapData creates a new secret with the data passed in as input,
@@ -231,4 +269,72 @@ func (r *EKSConfigReconciler) storeBootstrapData(ctx context.Context, scope *EKS
 	scope.Config.Status.Ready = true
 	conditions.MarkTrue(scope.Config, bootstrapv1.DataSecretAvailableCondition)
 	return nil
+}
+
+// MachineToBootstrapMapFunc is a handler.ToRequestsFunc to be used to enqueue requests
+// for EKSConfig reconciliation
+func (r *EKSConfigReconciler) MachineToBootstrapMapFunc(o handler.MapObject) []ctrl.Request {
+	result := []ctrl.Request{}
+
+	m, ok := o.Object.(*clusterv1.Machine)
+	if !ok {
+		return nil
+	}
+	if m.Spec.Bootstrap.ConfigRef != nil && m.Spec.Bootstrap.ConfigRef.GroupVersionKind() == bootstrapv1.GroupVersion.WithKind("EKSConfig") {
+		name := client.ObjectKey{Namespace: m.Namespace, Name: m.Spec.Bootstrap.ConfigRef.Name}
+		result = append(result, ctrl.Request{NamespacedName: name})
+	}
+	return result
+}
+
+// MachinePoolToBootstrapMapFunc is a handler.ToRequestsFunc to be uses to enqueue requests
+// for EKSConfig reconciliation
+func (r *EKSConfigReconciler) MachinePoolToBootstrapMapFunc(o handler.MapObject) []ctrl.Request {
+	result := []ctrl.Request{}
+
+	m, ok := o.Object.(*expv1.MachinePool)
+	if !ok {
+		return nil
+	}
+	configRef := m.Spec.Template.Spec.Bootstrap.ConfigRef
+	if configRef != nil && configRef.GroupVersionKind().GroupKind() == bootstrapv1.GroupVersion.WithKind("EKSConfig").GroupKind() {
+		name := client.ObjectKey{Namespace: m.Namespace, Name: configRef.Name}
+		result = append(result, ctrl.Request{NamespacedName: name})
+	}
+
+	return result
+}
+
+// ClusterToEKSConfigs is a handler.ToRequestsFunc to be used to enqueue requests for
+// EKSConfig reconciliation
+func (r *EKSConfigReconciler) ClusterToEKSConfigs(o handler.MapObject) []ctrl.Request {
+	result := []ctrl.Request{}
+
+	c, ok := o.Object.(*clusterv1.Cluster)
+	if !ok {
+		return nil
+	}
+
+	selectors := []client.ListOption{
+		client.InNamespace(c.Namespace),
+		client.MatchingLabels{
+			clusterv1.ClusterLabelName: c.Name,
+		},
+	}
+
+	machineList := &clusterv1.MachineList{}
+	if err := r.Client.List(context.Background(), machineList, selectors...); err != nil {
+		r.Log.Error(err, "failed to list Machines", "cluster", c.Name, "Namespace", c.Namespace)
+		return nil
+	}
+
+	for _, m := range machineList.Items {
+		if m.Spec.Bootstrap.ConfigRef != nil &&
+			m.Spec.Bootstrap.ConfigRef.GroupVersionKind().GroupKind() == bootstrapv1.GroupVersion.WithKind("EKSConfig").GroupKind() {
+			name := client.ObjectKey{Namespace: m.Namespace, Name: m.Spec.Bootstrap.ConfigRef.Name}
+			result = append(result, ctrl.Request{NamespacedName: name})
+		}
+	}
+
+	return result
 }
