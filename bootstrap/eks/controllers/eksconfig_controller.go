@@ -69,7 +69,7 @@ type EKSConfigScope struct {
 
 func (r *EKSConfigReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, rerr error) {
 	ctx := context.Background()
-	log := r.Log.WithValues("eksconfig", req.NamespacedName)
+	log := r.Log.WithValues("namespace", req.NamespacedName.Namespace, "eksConfig", req.NamespacedName.Name)
 
 	// get EKSConfig
 	config := &bootstrapv1.EKSConfig{}
@@ -112,7 +112,7 @@ func (r *EKSConfigReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, rerr e
 		return ctrl.Result{}, err
 	}
 	log = log.WithValues("cluster", cluster.Name)
-	
+
 	if annotations.IsPaused(cluster, config) {
 		log.Info("Reconciliation is paused for this object")
 		return ctrl.Result{}, nil
@@ -171,7 +171,7 @@ func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigSc
 	}
 
 	if !scope.Cluster.Status.InfrastructureReady {
-		scope.Logger.Info("Cluster infrastructure is not ready")
+		scope.Info("Cluster infrastructure is not ready")
 		conditions.MarkFalse(scope.Config,
 			bootstrapv1.DataSecretAvailableCondition,
 			bootstrapv1.WaitingForClusterInfrastructureReason,
@@ -180,12 +180,12 @@ func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigSc
 	}
 
 	if !scope.Cluster.Status.ControlPlaneInitialized {
-		scope.Logger.Info("Control Plane has not yet been initialized")
-		conditions.MarkFalse(scope.Config, bootstrapv1.DataSecretAvailableCondition, bootstrapv1.DataSecretGenerationFailedReason, clusterv1.ConditionSeverityWarning, "")
+		scope.Info("Control Plane has not yet been initialized")
+		conditions.MarkFalse(scope.Config, bootstrapv1.DataSecretAvailableCondition, bootstrapv1.WaitingForControlPlaneInitializationReason, clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{}, nil
 	}
 
-	scope.Logger.Info("generating userdata", "cluster", scope.Cluster.GetName())
+	scope.Info("generating userdata")
 
 	// generate userdata
 	userDataScript, err := userdata.NewNode(&userdata.NodeInput{
@@ -194,6 +194,7 @@ func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigSc
 	})
 	if err != nil {
 		scope.Error(err, "Failed to create a worker join configuration")
+		conditions.MarkFalse(scope.Config, bootstrapv1.DataSecretAvailableCondition, bootstrapv1.DataSecretGenerationFailedReason, clusterv1.ConditionSeverityWarning, "")
 		return ctrl.Result{}, err
 	}
 
