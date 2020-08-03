@@ -154,6 +154,20 @@ func (r *EKSConfigReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, rerr e
 }
 
 func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigScope) (ctrl.Result, error) {
+	if scope.Config.Status.DataSecretName != nil {
+		secretKey := client.ObjectKey{Namespace: scope.Config.Namespace, Name: *scope.Config.Status.DataSecretName}
+		existingSecret := &corev1.Secret{}
+
+		// No error here means the Secret exists and we have no
+		// reason to proceed.
+		err := r.Client.Get(ctx, secretKey, existingSecret)
+		switch {
+		case err == nil:
+			return ctrl.Result{}, nil
+		case !apierrors.IsNotFound(err):
+			return ctrl.Result{}, fmt.Errorf("unable to check for existing bootstrap secret: %w", err)
+		}
+	}
 
 	if !scope.Cluster.Status.InfrastructureReady {
 		scope.Logger.Info("Cluster infrastructure is not ready")
