@@ -173,11 +173,11 @@ binaries: managers clusterawsadm ## Builds and installs all binaries
 
 .PHONY: managers
 managers:
-	$(MAKE) manager-core
+	$(MAKE) manager-aws-infrastructure
 	$(MAKE) manager-eks-bootstrap
 
-.PHONY: manager-core
-manager-core: ## Build manager binary.
+.PHONY: manager-aws-infrastructure
+manager-aws-infrastructure: ## Build manager binary.
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS} -extldflags '-static'" -o $(BIN_DIR)/manager .
 
 .PHONY: manager-eks-bootstrap
