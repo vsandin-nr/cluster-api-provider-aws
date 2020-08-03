@@ -111,7 +111,8 @@ func (r *EKSConfigReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, rerr e
 		log.Error(err, "Could not get cluster with metadata")
 		return ctrl.Result{}, err
 	}
-
+	log = log.WithValues("cluster", cluster.Name)
+	
 	if annotations.IsPaused(cluster, config) {
 		log.Info("Reconciliation is paused for this object")
 		return ctrl.Result{}, nil
