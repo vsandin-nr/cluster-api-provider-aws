@@ -180,7 +180,7 @@ func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigSc
 	}
 
 	if !scope.Cluster.Status.ControlPlaneInitialized {
-		scope.Logger.Info("Cluster has not yet been initialized, requeueing")
+		scope.Logger.Info("Control Plane has not yet been initialized")
 		conditions.MarkFalse(scope.Config, bootstrapv1.DataSecretAvailableCondition, bootstrapv1.DataSecretGenerationFailedReason, clusterv1.ConditionSeverityWarning, "")
 		return ctrl.Result{}, nil
 	}
