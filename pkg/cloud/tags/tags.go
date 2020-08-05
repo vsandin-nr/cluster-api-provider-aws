@@ -23,6 +23,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
+	"github.com/aws/aws-sdk-go/service/eks"
+	"github.com/aws/aws-sdk-go/service/eks/eksiface"
 	"github.com/pkg/errors"
 
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
@@ -80,7 +82,7 @@ func (b *Builder) Ensure(current infrav1.Tags) error {
 	return nil
 }
 
-// WithEC2 is used to denote that the tags builder will be using EC2
+// WithEC2 is used to denote that the tags builder will be targetting EC2
 func WithEC2(ec2client ec2iface.EC2API) BuilderOption {
 	return func(b *Builder) {
 		b.applyFunc = func(params *infrav1.BuildParams) error {
@@ -102,6 +104,32 @@ func WithEC2(ec2client ec2iface.EC2API) BuilderOption {
 
 			_, err := ec2client.CreateTags(createTagsInput)
 			return errors.Wrapf(err, "failed to tag resource %q in cluster %q", params.ResourceID, params.ClusterName)
+		}
+	}
+}
+
+// WithEKS is used to specify that the tags builder will be targetting EKS
+func WithEKS(eksclient eksiface.EKSAPI) BuilderOption {
+	return func(b *Builder) {
+		b.applyFunc = func(params *infrav1.BuildParams) error {
+			tags := infrav1.Build(*params)
+
+			eksTags := make(map[string]*string, len(tags))
+			for k, v := range tags {
+				eksTags[k] = aws.String(v)
+			}
+
+			tagResourcesInput := &eks.TagResourceInput{
+				ResourceArn: aws.String(params.ResourceID),
+				Tags:        eksTags,
+			}
+
+			_, err := eksclient.TagResource(tagResourcesInput)
+			if err != nil {
+				return errors.Wrapf(err, "failed to tag eks cluster %q in cluster %q", params.ResourceID, params.ClusterName)
+			}
+
+			return nil
 		}
 	}
 }
@@ -140,25 +168,4 @@ func BuildParamsToTagSpecification(ec2ResourceType string, params infrav1.BuildP
 	}
 
 	return tagSpec
-}
-
-// Ensure applies the tags if the current tags differ from the params.
-func Ensure(current infrav1.Tags, params *infrav1.BuildParams, fn TagsApplyFunc) error {
-	diff := computeDiff(current, params)
-	if len(diff) > 0 {
-		return fn(params)
-	}
-	return nil
-}
-
-func computeDiff(current infrav1.Tags, buildParams *infrav1.BuildParams) infrav1.Tags {
-	want := infrav1.Build(*buildParams)
-
-	// Some tags could be external set by some external entities
-	// and that means even if there is no change in cluster
-	// managed tags, tags would be updated as "current" and
-	// "want" would be different due to external tags.
-	// This fix makes sure that tags are updated only if
-	// there is a change in cluster managed tags.
-	return want.Difference(current)
 }
