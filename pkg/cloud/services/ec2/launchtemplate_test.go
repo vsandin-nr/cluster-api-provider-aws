@@ -23,7 +23,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/golang/mock/gomock"
-	"github.com/pkg/errors"
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/awserrors"
@@ -50,7 +49,7 @@ func TestGetLaunchTemplate(t *testing.T) {
 					LaunchTemplateId: aws.String("foo"),
 					Versions:         []*string{aws.String("$Latest")},
 				})).
-					Return(nil, awserrors.NewNotFound(errors.New("not found")))
+					Return(nil, awserrors.NewNotFound("not found"))
 			},
 			check: func(launchtemplate *expinfrav1.AWSLaunchTemplate, err error) {
 				if err != nil {
