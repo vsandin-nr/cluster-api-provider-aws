@@ -333,7 +333,7 @@ func (s *Service) GetCoreNodeSecurityGroups() ([]string, error) {
 	for _, sg := range sgRoles {
 		if _, ok := s.scope.SecurityGroups()[sg]; !ok {
 			return nil, awserrors.NewFailedDependency(
-				errors.Errorf("%s security group not available", sg),
+				fmt.Sprintf("%s security group not available", sg),
 			)
 		}
 		ids = append(ids, s.scope.SecurityGroups()[sg].ID)
