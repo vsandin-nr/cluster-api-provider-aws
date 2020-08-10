@@ -147,14 +147,39 @@ func (r *AWSMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reter
 			logger.Info("giant error", "incoming", errManagedCluster.Error())
 			return ctrl.Result{}, nil
 		}
+
+		logger = logger.WithValues("awsManagedControlPlane", awsManagedControlPlane.Name)
+
+		// Create the cluster scope
+		managedControlPlaneScope, err = scope.NewManagedControlPlaneScope(scope.ManagedControlPlaneScopeParams{
+			Client:         r.Client,
+			Logger:         logger,
+			Cluster:        cluster,
+			ControlPlane:   awsManagedControlPlane,
+			ControllerName: "awsmachine",
+		})
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		// Create the machine scope
+		machineScope, err = scope.NewMachineScope(scope.MachineScopeParams{
+			Logger:       logger,
+			Client:       r.Client,
+			Cluster:      cluster,
+			Machine:      machine,
+			InfraCluster: managedControlPlaneScope,
+			AWSMachine:   awsMachine,
+		})
+		if err != nil {
+			return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
+		}
 	} else {
 		if err := r.Client.Get(ctx, infraClusterName, awsCluster); err != nil {
 			logger.Info("AWSCluster is not available yet")
 			return ctrl.Result{}, nil
 		}
-	}
 
-	if awsCluster != nil {
 		logger = logger.WithValues("awsCluster", awsCluster.Name)
 
 		// Create the cluster scope
@@ -181,34 +206,6 @@ func (r *AWSMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reter
 		if err != nil {
 			return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
 		}
-	} else {
-		logger = logger.WithValues("awsManagedControlPlane", awsManagedControlPlane.Name)
-
-		// Create the cluster scope
-		managedControlPlaneScope, err = scope.NewManagedControlPlaneScope(scope.ManagedControlPlaneScopeParams{
-			Client:         r.Client,
-			Logger:         logger,
-			Cluster:        cluster,
-			ControlPlane:   awsManagedControlPlane,
-			ControllerName: "awsmachine",
-		})
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		// Create the machine scope
-		machineScope, err = scope.NewMachineScope(scope.MachineScopeParams{
-			Logger:       logger,
-			Client:       r.Client,
-			Cluster:      cluster,
-			Machine:      machine,
-			InfraCluster: clusterScope,
-			AWSMachine:   awsMachine,
-		})
-		if err != nil {
-			return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
-		}
-
 	}
 
 	// Always close the scope when exiting this function so we can persist any AWSMachine changes.
@@ -246,13 +243,13 @@ func (r *AWSMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reter
 	}()
 
 	if !awsMachine.ObjectMeta.DeletionTimestamp.IsZero() {
-		if managedControlPlaneScope.ControlPlane.Name != "" {
+		if cluster.Spec.ControlPlaneRef != nil && cluster.Spec.ControlPlaneRef.Kind == "AWSManagedControlPlane" {
 			return r.reconcileDelete(machineScope, managedControlPlaneScope, managedControlPlaneScope, nil)
 		}
 		return r.reconcileDelete(machineScope, clusterScope, clusterScope, clusterScope)
 	}
 
-	if managedControlPlaneScope.ControlPlane.Name != "" {
+	if cluster.Spec.ControlPlaneRef != nil && cluster.Spec.ControlPlaneRef.Kind == "AWSManagedControlPlane" {
 		return r.reconcileNormal(ctx, machineScope, managedControlPlaneScope, managedControlPlaneScope, nil)
 	}
 	return r.reconcileNormal(ctx, machineScope, clusterScope, clusterScope, clusterScope)
