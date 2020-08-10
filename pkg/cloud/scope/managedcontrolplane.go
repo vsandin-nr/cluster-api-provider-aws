@@ -226,3 +226,15 @@ func (s *ManagedControlPlaneScope) TokenMethod() infrav1exp.EKSTokenMethod {
 
 	return infrav1exp.EKSTokenMethodIAMAuthenticator
 }
+
+func (s *ManagedControlPlaneScope) ImageLookupBaseOS() string {
+	return "okay"
+}
+
+func (s *ManagedControlPlaneScope) ImageLookupFormat() string {
+	return "okay"
+}
+
+func (s *ManagedControlPlaneScope) ImageLookupOrg() string {
+	return "okay"
+}
