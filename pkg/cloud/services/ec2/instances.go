@@ -781,7 +781,7 @@ func (s *Service) DetachSecurityGroupsFromNetworkInterface(groups []string, inte
 func (s *Service) shouldUseEksAMI() bool {
 	gvk := s.scope.InfraCluster().GetObjectKind().GroupVersionKind()
 
-	return gvk.Kind == "AWSManagedCluster"
+	return gvk.Kind == "AWSManagedControlPlane"
 }
 
 // filterGroups filters a list for a string.
