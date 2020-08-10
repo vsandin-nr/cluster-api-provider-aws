@@ -197,16 +197,12 @@ func makeEksEncryptionConfigs(encryptionConfig *infrav1exp.EncryptionConfig) []*
 func makeVpcConfig(subnets infrav1.Subnets, endpointAccess infrav1exp.EndpointAccess) (*eks.VpcConfigRequest, error) {
 	// TODO: Do we need to just add the private subnets?
 	if len(subnets) < 2 {
-		return nil, awserrors.NewFailedDependency(
-			errors.New("at least 2 subnets is required"),
-		)
+		return nil, awserrors.NewFailedDependency("at least 2 subnets is required")
 	}
 
 	zones := subnets.GetUniqueZones()
 	if len(zones) < 2 {
-		return nil, awserrors.NewFailedDependency(
-			errors.New("subnets in at least 2 different az's are required"),
-		)
+		return nil, awserrors.NewFailedDependency("subnets in at least 2 different az's are required")
 	}
 
 	subnetIds := make([]*string, 0)
