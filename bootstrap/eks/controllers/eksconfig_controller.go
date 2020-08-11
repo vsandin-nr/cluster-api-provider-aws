@@ -100,7 +100,7 @@ func (r *EKSConfigReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, rerr e
 
 	cluster, err := util.GetClusterByName(ctx, r.Client, configOwner.GetNamespace(), configOwner.ClusterName())
 	if err != nil {
-		if errors.Cause(err) == util.ErrNoCluster {
+		if errors.Is(err, util.ErrNoCluster) {
 			log.Info(fmt.Sprintf("%s does not belong to a cluster yet, requeueing until it's part of a cluster", configOwner.GetKind()))
 			return ctrl.Result{}, nil
 		}
