@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	bootstrapv1 "sigs.k8s.io/cluster-api-provider-aws/bootstrap/eks/api/v1alpha3"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
-	"sigs.k8s.io/cluster-api/bootstrap/util"
 	"sigs.k8s.io/yaml"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -52,20 +51,13 @@ var _ = Describe("EKSConfigReconciler", func() {
 			err = yaml.Unmarshal(bytes, owner)
 			Expect(err).To(BeNil())
 
-			scope := &EKSConfigScope{
-				Logger:      log.Log,
-				Config:      config,
-				ConfigOwner: &util.ConfigOwner{Unstructured: owner},
-				Cluster:     cluster,
-			}
-
 			reconciler := EKSConfigReconciler{
 				Log:    log.Log,
 				Client: testEnv.Client,
 			}
 
 			By("Calling reconcile should requeue")
-			result, err := reconciler.joinWorker(context.Background(), scope)
+			result, err := reconciler.joinWorker(context.Background(), log.Log, cluster, config)
 			Expect(err).To(Succeed())
 			Expect(result.Requeue).To(BeFalse())
 		})

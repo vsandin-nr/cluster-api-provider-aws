@@ -53,13 +53,6 @@ type EKSConfigReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-type EKSConfigScope struct {
-	logr.Logger
-	Config      *bootstrapv1.EKSConfig
-	ConfigOwner *bsutil.ConfigOwner
-	Cluster     *clusterv1.Cluster
-}
-
 // +kubebuilder:rbac:groups=bootstrap.cluster.x-k8s.io,resources=eksconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=bootstrap.cluster.x-k8s.io,resources=eksconfigs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awsclusters;awsmanagedclusters,verbs=get;list;watch;
@@ -117,13 +110,6 @@ func (r *EKSConfigReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, rerr e
 		return ctrl.Result{}, nil
 	}
 
-	scope := &EKSConfigScope{
-		Logger:      log,
-		Config:      config,
-		ConfigOwner: configOwner,
-		Cluster:     cluster,
-	}
-
 	patchHelper, err := patch.NewHelper(config, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -150,13 +136,12 @@ func (r *EKSConfigReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, rerr e
 		}
 	}()
 
-	return r.joinWorker(ctx, scope)
+	return r.joinWorker(ctx, log, cluster, config)
 }
 
-func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigScope) (ctrl.Result, error) {
-	log := scope.Logger
-	if scope.Config.Status.DataSecretName != nil {
-		secretKey := client.ObjectKey{Namespace: scope.Config.Namespace, Name: *scope.Config.Status.DataSecretName}
+func (r *EKSConfigReconciler) joinWorker(ctx context.Context, log logr.Logger, cluster *clusterv1.Cluster, config *bootstrapv1.EKSConfig) (ctrl.Result, error) {
+	if config.Status.DataSecretName != nil {
+		secretKey := client.ObjectKey{Namespace: config.Namespace, Name: *config.Status.DataSecretName}
 		log = log.WithValues("data-secret-name", secretKey.Name)
 		existingSecret := &corev1.Secret{}
 
@@ -172,18 +157,18 @@ func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigSc
 		}
 	}
 
-	if !scope.Cluster.Status.InfrastructureReady {
-		scope.Info("Cluster infrastructure is not ready")
-		conditions.MarkFalse(scope.Config,
+	if !cluster.Status.InfrastructureReady {
+		log.Info("Cluster infrastructure is not ready")
+		conditions.MarkFalse(config,
 			bootstrapv1.DataSecretAvailableCondition,
 			bootstrapv1.WaitingForClusterInfrastructureReason,
 			clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{}, nil
 	}
 
-	if !scope.Cluster.Status.ControlPlaneInitialized {
-		scope.Info("Control Plane has not yet been initialized")
-		conditions.MarkFalse(scope.Config, bootstrapv1.DataSecretAvailableCondition, bootstrapv1.WaitingForControlPlaneInitializationReason, clusterv1.ConditionSeverityInfo, "")
+	if !cluster.Status.ControlPlaneInitialized {
+		log.Info("Control Plane has not yet been initialized")
+		conditions.MarkFalse(config, bootstrapv1.DataSecretAvailableCondition, bootstrapv1.WaitingForControlPlaneInitializationReason, clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{}, nil
 	}
 
@@ -191,19 +176,19 @@ func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigSc
 
 	// generate userdata
 	userDataScript, err := userdata.NewNode(&userdata.NodeInput{
-		ClusterName:      scope.Cluster.GetName(),
-		KubeletExtraArgs: scope.Config.Spec.KubeletExtraArgs,
+		ClusterName:      cluster.GetName(),
+		KubeletExtraArgs: config.Spec.KubeletExtraArgs,
 	})
 	if err != nil {
 		log.Error(err, "Failed to create a worker join configuration")
-		conditions.MarkFalse(scope.Config, bootstrapv1.DataSecretAvailableCondition, bootstrapv1.DataSecretGenerationFailedReason, clusterv1.ConditionSeverityWarning, "")
+		conditions.MarkFalse(config, bootstrapv1.DataSecretAvailableCondition, bootstrapv1.DataSecretGenerationFailedReason, clusterv1.ConditionSeverityWarning, "")
 		return ctrl.Result{}, err
 	}
 
 	// store userdata as secret
-	if err := r.storeBootstrapData(ctx, log, scope, userDataScript); err != nil {
+	if err := r.storeBootstrapData(ctx, log, cluster, config, userDataScript); err != nil {
 		log.Error(err, "Failed to store bootstrap data")
-		conditions.MarkFalse(scope.Config, bootstrapv1.DataSecretAvailableCondition, bootstrapv1.DataSecretGenerationFailedReason, clusterv1.ConditionSeverityWarning, "")
+		conditions.MarkFalse(config, bootstrapv1.DataSecretAvailableCondition, bootstrapv1.DataSecretGenerationFailedReason, clusterv1.ConditionSeverityWarning, "")
 		return ctrl.Result{}, err
 	}
 
@@ -252,20 +237,20 @@ func (r *EKSConfigReconciler) SetupWithManager(mgr ctrl.Manager, option controll
 
 // storeBootstrapData creates a new secret with the data passed in as input,
 // sets the reference in the configuration status and ready to true.
-func (r *EKSConfigReconciler) storeBootstrapData(ctx context.Context, log logr.Logger, scope *EKSConfigScope, data []byte) error {
+func (r *EKSConfigReconciler) storeBootstrapData(ctx context.Context, log logr.Logger, cluster *clusterv1.Cluster, config *bootstrapv1.EKSConfig, data []byte) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      scope.Config.Name,
-			Namespace: scope.Config.Namespace,
+			Name:      config.Name,
+			Namespace: config.Namespace,
 			Labels: map[string]string{
-				clusterv1.ClusterLabelName: scope.Cluster.Name,
+				clusterv1.ClusterLabelName: cluster.Name,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: bootstrapv1.GroupVersion.String(),
 					Kind:       "EKSConfig",
-					Name:       scope.Config.Name,
-					UID:        scope.Config.UID,
+					Name:       config.Name,
+					UID:        config.UID,
 					Controller: pointer.BoolPtr(true),
 				},
 			},
@@ -284,9 +269,9 @@ func (r *EKSConfigReconciler) storeBootstrapData(ctx context.Context, log logr.L
 		}
 		log.Info("bootstrap data secret for EKSConfig already exists", "secret", secret.Name)
 	}
-	scope.Config.Status.DataSecretName = pointer.StringPtr(secret.Name)
-	scope.Config.Status.Ready = true
-	conditions.MarkTrue(scope.Config, bootstrapv1.DataSecretAvailableCondition)
+	config.Status.DataSecretName = pointer.StringPtr(secret.Name)
+	config.Status.Ready = true
+	conditions.MarkTrue(config, bootstrapv1.DataSecretAvailableCondition)
 	return nil
 }
 
