@@ -69,7 +69,7 @@ type EKSConfigScope struct {
 
 func (r *EKSConfigReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, rerr error) {
 	ctx := context.Background()
-	log := r.Log.WithValues("namespace", req.NamespacedName.Namespace, "eksConfig", req.NamespacedName.Name)
+	log := r.Log.WithValues("namespace", req.NamespacedName.Namespace, "name", req.NamespacedName.Name)
 
 	// get EKSConfig
 	config := &bootstrapv1.EKSConfig{}
@@ -101,11 +101,11 @@ func (r *EKSConfigReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, rerr e
 	cluster, err := util.GetClusterByName(ctx, r.Client, configOwner.GetNamespace(), configOwner.ClusterName())
 	if err != nil {
 		if errors.Is(err, util.ErrNoCluster) {
-			log.Info(fmt.Sprintf("%s does not belong to a cluster yet, requeueing until it's part of a cluster", configOwner.GetKind()))
+			log.Info("EKSConfig does not belong to a cluster yet, re-queuing until it's partof a cluster")
 			return ctrl.Result{}, nil
 		}
 		if apierrors.IsNotFound(err) {
-			log.Info("Cluster does not exist yet, requeueing until it is created")
+			log.Info("Cluster does not exist yet, re-queueing until it is created")
 			return ctrl.Result{}, nil
 		}
 		log.Error(err, "Could not get cluster with metadata")
@@ -155,8 +155,10 @@ func (r *EKSConfigReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, rerr e
 }
 
 func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigScope) (ctrl.Result, error) {
+		log := scope.Logger
 	if scope.Config.Status.DataSecretName != nil {
 		secretKey := client.ObjectKey{Namespace: scope.Config.Namespace, Name: *scope.Config.Status.DataSecretName}
+		log = log.WithValues("data-secret-name", secretKey.Name)
 		existingSecret := &corev1.Secret{}
 
 		// No error here means the Secret exists and we have no
@@ -166,7 +168,8 @@ func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigSc
 		case err == nil:
 			return ctrl.Result{}, nil
 		case !apierrors.IsNotFound(err):
-			return ctrl.Result{}, fmt.Errorf("unable to check for existing bootstrap secret: %w", err)
+            log.Error(err, "unable to check for existing bootstrap secret")
+			return ctrl.Result{}, err)
 		}
 	}
 
@@ -185,7 +188,7 @@ func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigSc
 		return ctrl.Result{}, nil
 	}
 
-	scope.Info("generating userdata")
+	log.Info("Generating userdata")
 
 	// generate userdata
 	userDataScript, err := userdata.NewNode(&userdata.NodeInput{
@@ -193,14 +196,14 @@ func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigSc
 		KubeletExtraArgs: scope.Config.Spec.KubeletExtraArgs,
 	})
 	if err != nil {
-		scope.Error(err, "Failed to create a worker join configuration")
+		log.Error(err, "Failed to create a worker join configuration")
 		conditions.MarkFalse(scope.Config, bootstrapv1.DataSecretAvailableCondition, bootstrapv1.DataSecretGenerationFailedReason, clusterv1.ConditionSeverityWarning, "")
 		return ctrl.Result{}, err
 	}
 
 	// store userdata as secret
 	if err := r.storeBootstrapData(ctx, scope, userDataScript); err != nil {
-		scope.Error(err, "Failed to store bootstrap data")
+		log.Error(err, "Failed to store bootstrap data")
 		conditions.MarkFalse(scope.Config, bootstrapv1.DataSecretAvailableCondition, bootstrapv1.DataSecretGenerationFailedReason, clusterv1.ConditionSeverityWarning, "")
 		return ctrl.Result{}, err
 	}
@@ -278,7 +281,7 @@ func (r *EKSConfigReconciler) storeBootstrapData(ctx context.Context, scope *EKS
 	// it is possible that secret creation happens but the config.Status patches are not applied
 	if err := r.Client.Create(ctx, secret); err != nil {
 		if !apierrors.IsAlreadyExists(err) {
-			return errors.Wrapf(err, "failed to create bootstrap data secret for EKSConfig %s/%s", scope.Config.Namespace, scope.Config.Name)
+			return errors.Wrap(err, "failed to create bootstrap data secret for EKSConfig")
 		}
 		r.Log.Info("bootstrap data secret for EKSConfig already exists", "secret", secret.Name, "EKSConfig", scope.Config.Name)
 	}
@@ -341,7 +344,7 @@ func (r *EKSConfigReconciler) ClusterToEKSConfigs(o handler.MapObject) []ctrl.Re
 
 	machineList := &clusterv1.MachineList{}
 	if err := r.Client.List(context.Background(), machineList, selectors...); err != nil {
-		r.Log.Error(err, "failed to list Machines", "cluster", c.Name, "Namespace", c.Namespace)
+		r.Log.Error(err, "failed to list Machines for Cluster", "name", c.Name, "namespace", c.Namespace)
 		return nil
 	}
 

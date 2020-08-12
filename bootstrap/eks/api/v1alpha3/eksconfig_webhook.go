@@ -38,7 +38,6 @@ func (r *EKSConfig) SetupWebhookWithManager(mgr ctrl.Manager) error {
 func (r *EKSConfig) ValidateCreate() error {
 	eksconfiglog.Info("validate create", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object creation.
 	return nil
 }
 
@@ -46,7 +45,6 @@ func (r *EKSConfig) ValidateCreate() error {
 func (r *EKSConfig) ValidateUpdate(old runtime.Object) error {
 	eksconfiglog.Info("validate update", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object update.
 	return nil
 }
 
@@ -54,6 +52,5 @@ func (r *EKSConfig) ValidateUpdate(old runtime.Object) error {
 func (r *EKSConfig) ValidateDelete() error {
 	eksconfiglog.Info("validate delete", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
 }
