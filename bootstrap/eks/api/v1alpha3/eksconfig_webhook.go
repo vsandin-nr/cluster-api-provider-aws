@@ -31,7 +31,6 @@ func (r *EKSConfig) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// (user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // +kubebuilder:webhook:verbs=create;update,path=/validate-bootstrap-cluster-x-k8s-io-v1alpha3-eksconfig,mutating=false,failurePolicy=fail,matchPolicy=Equivalent,groups=bootstrap.cluster.x-k8s.io,resources=eksconfigs,versions=v1alpha3,name=validation.eksconfig.bootstrap.cluster.x-k8s.io,sideEffects=None
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type

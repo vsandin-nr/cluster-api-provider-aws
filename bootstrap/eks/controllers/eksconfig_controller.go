@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -155,7 +154,7 @@ func (r *EKSConfigReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, rerr e
 }
 
 func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigScope) (ctrl.Result, error) {
-		log := scope.Logger
+	log := scope.Logger
 	if scope.Config.Status.DataSecretName != nil {
 		secretKey := client.ObjectKey{Namespace: scope.Config.Namespace, Name: *scope.Config.Status.DataSecretName}
 		log = log.WithValues("data-secret-name", secretKey.Name)
@@ -168,8 +167,8 @@ func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigSc
 		case err == nil:
 			return ctrl.Result{}, nil
 		case !apierrors.IsNotFound(err):
-            log.Error(err, "unable to check for existing bootstrap secret")
-			return ctrl.Result{}, err)
+			log.Error(err, "unable to check for existing bootstrap secret")
+			return ctrl.Result{}, err
 		}
 	}
 
@@ -202,7 +201,7 @@ func (r *EKSConfigReconciler) joinWorker(ctx context.Context, scope *EKSConfigSc
 	}
 
 	// store userdata as secret
-	if err := r.storeBootstrapData(ctx, scope, userDataScript); err != nil {
+	if err := r.storeBootstrapData(ctx, log, scope, userDataScript); err != nil {
 		log.Error(err, "Failed to store bootstrap data")
 		conditions.MarkFalse(scope.Config, bootstrapv1.DataSecretAvailableCondition, bootstrapv1.DataSecretGenerationFailedReason, clusterv1.ConditionSeverityWarning, "")
 		return ctrl.Result{}, err
@@ -253,7 +252,7 @@ func (r *EKSConfigReconciler) SetupWithManager(mgr ctrl.Manager, option controll
 
 // storeBootstrapData creates a new secret with the data passed in as input,
 // sets the reference in the configuration status and ready to true.
-func (r *EKSConfigReconciler) storeBootstrapData(ctx context.Context, scope *EKSConfigScope, data []byte) error {
+func (r *EKSConfigReconciler) storeBootstrapData(ctx context.Context, log logr.Logger, scope *EKSConfigScope, data []byte) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      scope.Config.Name,
@@ -283,7 +282,7 @@ func (r *EKSConfigReconciler) storeBootstrapData(ctx context.Context, scope *EKS
 		if !apierrors.IsAlreadyExists(err) {
 			return errors.Wrap(err, "failed to create bootstrap data secret for EKSConfig")
 		}
-		r.Log.Info("bootstrap data secret for EKSConfig already exists", "secret", secret.Name, "EKSConfig", scope.Config.Name)
+		log.Info("bootstrap data secret for EKSConfig already exists", "secret", secret.Name)
 	}
 	scope.Config.Status.DataSecretName = pointer.StringPtr(secret.Name)
 	scope.Config.Status.Ready = true
