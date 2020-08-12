@@ -20,7 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-
 // EKSConfigTemplateSpec defines the desired state of EKSConfigTemplate
 type EKSConfigTemplateSpec struct {
 	Template EKSConfigTemplateResource `json:"template"`
