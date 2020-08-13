@@ -18,6 +18,7 @@ package eks
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -234,7 +235,7 @@ func TestMakeEKSLogging(t *testing.T) {
 }
 
 func TestReconcileClusterVersion(t *testing.T) {
-	clusterName := "cluster"
+	clusterName := "default.cluster"
 	tests := []struct {
 		name        string
 		expect      func(m *mock_eksiface.MockEKSAPIMockRecorder)
@@ -247,7 +248,7 @@ func TestReconcileClusterVersion(t *testing.T) {
 					DescribeCluster(gomock.AssignableToTypeOf(&eks.DescribeClusterInput{})).
 					Return(&eks.DescribeClusterOutput{
 						Cluster: &eks.Cluster{
-							Name:    aws.String("cluster"),
+							Name:    aws.String("default.cluster"),
 							Version: aws.String("1.16"),
 						},
 					}, nil)
@@ -261,7 +262,7 @@ func TestReconcileClusterVersion(t *testing.T) {
 					DescribeCluster(gomock.AssignableToTypeOf(&eks.DescribeClusterInput{})).
 					Return(&eks.DescribeClusterOutput{
 						Cluster: &eks.Cluster{
-							Name:    aws.String("cluster"),
+							Name:    aws.String("default.cluster"),
 							Version: aws.String("1.14"),
 						},
 					}, nil)
@@ -278,7 +279,7 @@ func TestReconcileClusterVersion(t *testing.T) {
 					DescribeCluster(gomock.AssignableToTypeOf(&eks.DescribeClusterInput{})).
 					Return(&eks.DescribeClusterOutput{
 						Cluster: &eks.Cluster{
-							Name:    aws.String("cluster"),
+							Name:    aws.String("default.cluster"),
 							Version: aws.String("1.14"),
 						},
 					}, nil)
@@ -318,7 +319,7 @@ func TestReconcileClusterVersion(t *testing.T) {
 			s := NewService(scope)
 			s.EKSClient = eksMock
 
-			cluster, err := s.describeEKSCluster()
+			cluster, err := s.describeEKSCluster(clusterName)
 			g.Expect(err).To(BeNil())
 
 			err = s.reconcileClusterVersion(context.TODO(), cluster)
@@ -327,6 +328,58 @@ func TestReconcileClusterVersion(t *testing.T) {
 				return
 			}
 			g.Expect(err).To(BeNil())
+		})
+	}
+}
+
+func TestGenerateEKSName(t *testing.T) {
+	tests := []struct {
+		name        string
+		clusterName string
+		namespace   string
+		expectName  bool
+		expectHash  bool
+		expect      string
+	}{
+		{
+			name:        "less than 100 chars",
+			clusterName: "cluster1",
+			namespace:   "default",
+			expectName:  true,
+			expectHash:  false,
+			expect:      "default_cluster1",
+		},
+		{
+			name:        "less than 100 chars, dot in name",
+			clusterName: "team1.cluster1",
+			namespace:   "default",
+			expectName:  true,
+			expectHash:  false,
+			expect:      "default_team1_cluster1",
+		},
+		{
+			name:        "more than 100 chars",
+			clusterName: "ABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDEABCDE",
+			namespace:   "default",
+			expectName:  false,
+			expectHash:  true,
+			expect:      "capi_",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+
+			actual, err := GenerateEKSName(tc.clusterName, tc.namespace)
+			g.Expect(err).To(BeNil())
+
+			if tc.expectName {
+				g.Expect(actual).To(Equal(tc.expect))
+			}
+			if tc.expectHash {
+				g.Expect(strings.HasPrefix(actual, "capa_")).To(BeTrue())
+			}
 		})
 	}
 }

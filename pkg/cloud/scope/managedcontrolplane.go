@@ -226,3 +226,8 @@ func (s *ManagedControlPlaneScope) TokenMethod() infrav1exp.EKSTokenMethod {
 
 	return infrav1exp.EKSTokenMethodIAMAuthenticator
 }
+
+// EKSClusterName gets the name of the EKS cluster in AWS
+func (s *ManagedControlPlaneScope) EKSClusterName() *string {
+	return s.ControlPlane.Status.EKSClusterName
+}

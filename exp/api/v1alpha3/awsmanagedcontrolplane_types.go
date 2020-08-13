@@ -119,6 +119,9 @@ type EncryptionConfig struct {
 
 // AWSManagedControlPlaneStatus defines the observed state of AWSManagedControlPlane
 type AWSManagedControlPlaneStatus struct {
+	// EKSClusterName holds the name of the actual EKS cluster in AWS
+	// +optional
+	EKSClusterName *string `json:"eksClusterName,omitempty"`
 	// Networks holds details about the AWS networking resources used by the control plane
 	// +optional
 	Network infrav1.Network `json:"network,omitempty"`

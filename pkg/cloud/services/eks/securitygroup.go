@@ -35,7 +35,7 @@ var (
 )
 
 func (s *Service) reconcileSecurityGroup(cluster *eks.Cluster) error {
-	s.scope.Info("Reconciling control plane security group", "cluster-name", *cluster.Name)
+	s.scope.Info("Reconciling control plane security group", "cluster-name", cluster.Name)
 
 	input := &ec2.DescribeSecurityGroupsInput{
 		Filters: []*ec2.Filter{

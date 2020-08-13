@@ -39,13 +39,13 @@ func (s *Service) reconcileTags(cluster *eks.Cluster) error {
 }
 
 func (s *Service) getEKSTagParams(id string) *infrav1.BuildParams {
-	name := fmt.Sprintf("%s-eks-cp", s.scope.Name())
+	name := s.scope.EKSClusterName()
 
 	return &infrav1.BuildParams{
 		ClusterName: s.scope.Name(),
 		ResourceID:  id,
 		Lifecycle:   infrav1.ResourceLifecycleOwned,
-		Name:        aws.String(name),
+		Name:        name,
 		Role:        aws.String(infrav1.CommonRoleTagValue),
 		Additional:  s.scope.AdditionalTags(),
 	}

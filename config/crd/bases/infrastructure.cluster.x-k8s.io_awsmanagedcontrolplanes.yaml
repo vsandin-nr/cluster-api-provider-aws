@@ -399,6 +399,9 @@ spec:
                   - type
                   type: object
                 type: array
+              eksClusterName:
+                description: EKSClusterName holds the name of the actual EKS cluster in AWS
+                type: string
               failureDomains:
                 additionalProperties:
                   description: FailureDomainSpec is the Schema for Cluster API failure domains. It allows controllers to understand how many failure domains a cluster can optionally span across.

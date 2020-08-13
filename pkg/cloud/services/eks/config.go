@@ -38,7 +38,7 @@ import (
 )
 
 func (s *Service) reconcileKubeconfig(ctx context.Context, cluster *eks.Cluster) error {
-	s.scope.V(2).Info("Reconciling EKS kubeconfig for cluster", "cluster-name", *cluster.Name)
+	s.scope.V(2).Info("Reconciling EKS kubeconfig for cluster", "cluster-name", s.scope.EKSClusterName())
 
 	clusterRef := types.NamespacedName{
 		Name:      s.scope.Cluster.Name,
@@ -72,9 +72,9 @@ func (s *Service) reconcileKubeconfig(ctx context.Context, cluster *eks.Cluster)
 func (s *Service) createKubeconfigSecret(ctx context.Context, cluster *eks.Cluster, clusterRef *types.NamespacedName) error {
 	controllerOwnerRef := *metav1.NewControllerRef(s.scope.ControlPlane, infrav1exp.GroupVersion.WithKind("AWSManagedControlPlane"))
 
-	clusterName := *cluster.Name
-	userName := fmt.Sprintf("%s-admin", clusterName)
-	contextName := fmt.Sprintf("%s@%s", userName, clusterName)
+	clusterName := s.scope.EKSClusterName()
+	userName := fmt.Sprintf("%s-admin", *clusterName)
+	contextName := fmt.Sprintf("%s@%s", userName, *clusterName)
 
 	certData, err := base64.StdEncoding.DecodeString(*cluster.CertificateAuthority.Data)
 	if err != nil {
@@ -84,14 +84,14 @@ func (s *Service) createKubeconfigSecret(ctx context.Context, cluster *eks.Clust
 	cfg := &api.Config{
 		APIVersion: api.SchemeGroupVersion.Version,
 		Clusters: map[string]*api.Cluster{
-			clusterName: {
+			*clusterName: {
 				Server:                   *cluster.Endpoint,
 				CertificateAuthorityData: certData,
 			},
 		},
 		Contexts: map[string]*api.Context{
 			contextName: {
-				Cluster:  clusterName,
+				Cluster:  *clusterName,
 				AuthInfo: userName,
 			},
 		},
@@ -105,7 +105,7 @@ func (s *Service) createKubeconfigSecret(ctx context.Context, cluster *eks.Clust
 		execConfig.Args = []string{
 			"token",
 			"-i",
-			clusterName,
+			*clusterName,
 		}
 	case infrav1exp.EKSTokenMethodAWSCli:
 		execConfig.Command = "aws"
@@ -113,7 +113,7 @@ func (s *Service) createKubeconfigSecret(ctx context.Context, cluster *eks.Clust
 			"eks",
 			"get-token",
 			"--cluster-name",
-			clusterName,
+			*clusterName,
 		}
 	default:
 		return fmt.Errorf("unknown token method %s", s.scope.TokenMethod())
