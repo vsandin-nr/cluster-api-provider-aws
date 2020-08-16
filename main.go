@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"math/rand"
@@ -49,8 +50,10 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme                   = runtime.NewScheme()
+	setupLog                 = ctrl.Log.WithName("setup")
+	maxEKSSyncPeriod         = time.Minute * 10
+	errMaxSyncPeriodExceeded = errors.New("sync period greater than maximum allowed")
 )
 
 func init() {
@@ -143,6 +146,11 @@ func main() {
 		}
 
 		if feature.Gates.Enabled(feature.EKS) {
+			if syncPeriod > maxEKSSyncPeriod {
+				setupLog.Error(errMaxSyncPeriodExceeded, "sync period exceeded maximum allowed when using EKS", "max-sync-period", maxEKSSyncPeriod)
+				os.Exit(1)
+			}
+
 			if err = (&controllersexp.AWSManagedControlPlaneReconciler{
 				Client:   mgr.GetClient(),
 				Log:      ctrl.Log.WithName("controllers").WithName("AWSManagedControlPlane"),

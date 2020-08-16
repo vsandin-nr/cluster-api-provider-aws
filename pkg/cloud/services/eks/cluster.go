@@ -68,6 +68,7 @@ func (s *Service) reconcileCluster(ctx context.Context) error {
 		}
 		s.scope.Info("Created EKS control plane", "cluster-name", s.scope.EKSClusterName())
 	} else {
+		s.scope.ControlPlane.Status.EKSClusterName = cluster.Name
 		s.scope.V(2).Info("Found EKS control plane", "cluster-name", s.scope.EKSClusterName())
 	}
 
@@ -105,6 +106,10 @@ func (s *Service) reconcileCluster(ctx context.Context) error {
 
 	if err := s.reconcileKubeconfig(ctx, cluster); err != nil {
 		return errors.Wrap(err, "failed reconciling kubeconfig")
+	}
+
+	if err := s.reconcileAdditionalKubeconfigs(ctx, cluster); err != nil {
+		return errors.Wrap(err, "failed reconciling additional kubeconfigs")
 	}
 
 	if err := s.reconcileClusterVersion(ctx, cluster); err != nil {

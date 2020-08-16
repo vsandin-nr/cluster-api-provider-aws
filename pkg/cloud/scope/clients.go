@@ -33,6 +33,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
+	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/aws/aws-sdk-go/service/sts/stsiface"
 
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -110,6 +112,16 @@ func NewIAMClient(scopeUser cloud.ScopeUsage, session cloud.Session, target runt
 	iamClient.Handlers.Complete.PushBack(recordAWSPermissionsIssue(target))
 
 	return iamClient
+}
+
+// NewSTSClient creates a new STS API client for a given session
+func NewSTSClient(scopeUser cloud.ScopeUsage, session cloud.Session, target runtime.Object) stsiface.STSAPI {
+	stsClient := sts.New(session.Session())
+	stsClient.Handlers.Build.PushFrontNamed(getUserAgentHandler())
+	stsClient.Handlers.CompleteAttempt.PushFront(awsmetrics.CaptureRequestMetrics(scopeUser.ControllerName()))
+	stsClient.Handlers.Complete.PushBack(recordAWSPermissionsIssue(target))
+
+	return stsClient
 }
 
 func recordAWSPermissionsIssue(target runtime.Object) func(r *request.Request) {
