@@ -52,6 +52,7 @@ rules:
   resources:
   - awsclusters
   - awsmanagedclusters
+  - awsmanagedcontrolplanes
   verbs:
   - get
   - list

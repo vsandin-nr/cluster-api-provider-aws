@@ -44,6 +44,7 @@ import (
 
 	bootstrapv1 "sigs.k8s.io/cluster-api-provider-aws/bootstrap/eks/api/v1alpha3"
 	"sigs.k8s.io/cluster-api-provider-aws/bootstrap/eks/internal/userdata"
+	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1alpha3"
 )
 
 // EKSConfigReconciler reconciles a EKSConfig object
@@ -55,7 +56,7 @@ type EKSConfigReconciler struct {
 
 // +kubebuilder:rbac:groups=bootstrap.cluster.x-k8s.io,resources=eksconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=bootstrap.cluster.x-k8s.io,resources=eksconfigs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awsclusters;awsmanagedclusters,verbs=get;list;watch;
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awsclusters;awsmanagedclusters;awsmanagedcontrolplanes,verbs=get;list;watch;
 // +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=machines;machinepools;clusters,verbs=get;list;watch;
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete;
 
@@ -157,6 +158,10 @@ func (r *EKSConfigReconciler) joinWorker(ctx context.Context, log logr.Logger, c
 		}
 	}
 
+	if cluster.Spec.ControlPlaneRef == nil || cluster.Spec.ControlPlaneRef.Kind != "AWSManagedControlPlane" {
+		return ctrl.Result{}, errors.New("cluster's spec.controlPlaneRef needs to be an AWSManagedControlPlane")
+	}
+
 	if !cluster.Status.InfrastructureReady {
 		log.Info("Cluster infrastructure is not ready")
 		conditions.MarkFalse(config,
@@ -172,11 +177,16 @@ func (r *EKSConfigReconciler) joinWorker(ctx context.Context, log logr.Logger, c
 		return ctrl.Result{}, nil
 	}
 
+	controlPlane := &expinfrav1.AWSManagedControlPlane{}
+	if err := r.Get(ctx, client.ObjectKey{Name: cluster.Spec.ControlPlaneRef.Name, Namespace: cluster.Spec.ControlPlaneRef.Namespace}, controlPlane); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	log.Info("Generating userdata")
 
 	// generate userdata
 	userDataScript, err := userdata.NewNode(&userdata.NodeInput{
-		ClusterName:      cluster.GetName(),
+		ClusterName:      *controlPlane.Status.EKSClusterName,
 		KubeletExtraArgs: config.Spec.KubeletExtraArgs,
 	})
 	if err != nil {
