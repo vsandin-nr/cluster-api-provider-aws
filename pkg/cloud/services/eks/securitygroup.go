@@ -55,12 +55,17 @@ func (s *Service) reconcileSecurityGroup(cluster *eks.Cluster) error {
 		return ErrNoSecurityGroup
 	}
 
-	sg := &infrav1.SecurityGroup{
+	sg := infrav1.SecurityGroup{
 		ID:   *output.SecurityGroups[0].GroupId,
 		Name: *output.SecurityGroups[0].GroupName,
 		Tags: converters.TagsToMap(output.SecurityGroups[0].Tags),
 	}
-	s.scope.ControlPlane.Status.SecurityGroup = sg
+
+	if s.scope.ControlPlane.Status.Network.SecurityGroups == nil {
+		s.scope.ControlPlane.Status.Network.SecurityGroups = make(map[infrav1.SecurityGroupRole]infrav1.SecurityGroup)
+	}
+
+	s.scope.ControlPlane.Status.Network.SecurityGroups[infrav1.SecurityGroupNode] = sg
 
 	return nil
 }

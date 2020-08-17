@@ -217,14 +217,14 @@ func makeVpcConfig(subnets infrav1.Subnets, endpointAccess infrav1exp.EndpointAc
 	// TODO: Do we need to just add the private subnets?
 	if len(subnets) < 2 {
 		return nil, awserrors.NewFailedDependency(
-			errors.New("at least 2 subnets is required"),
+			"at least 2 subnets is required",
 		)
 	}
 
 	zones := subnets.GetUniqueZones()
 	if len(zones) < 2 {
 		return nil, awserrors.NewFailedDependency(
-			errors.New("subnets in at least 2 different az's are required"),
+			"subnets in at least 2 different az's are required",
 		)
 	}
 
