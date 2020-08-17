@@ -45,6 +45,7 @@ import (
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/ec2"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/eks"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/network"
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/securitygroup"
 )
 
 // AWSManagedControlPlaneReconciler reconciles a AWSManagedControlPlane object
@@ -184,9 +185,14 @@ func (r *AWSManagedControlPlaneReconciler) reconcileNormal(ctx context.Context, 
 	ec2Service := ec2.NewService(managedScope)
 	networkSvc := network.NewService(managedScope)
 	ekssvc := eks.NewService(managedScope)
+	securitygroupSvc := securitygroup.NewService(managedScope)
 
 	if err := networkSvc.ReconcileNetwork(); err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to reconcile network for AWSManagedControlPlane %s/%s: %w", awsManagedControlPlane.Namespace, awsManagedControlPlane.Name, err)
+	}
+
+	if err := securitygroupSvc.ReconcileSecurityGroups(); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to reconcile security groups for AWSManagedControlPlane %s/%s: %w", awsManagedControlPlane.Namespace, awsManagedControlPlane.Name, err)
 	}
 
 	if err := ec2Service.ReconcileBastion(); err != nil {

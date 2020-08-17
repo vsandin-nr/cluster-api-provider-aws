@@ -231,3 +231,18 @@ func (s *ManagedControlPlaneScope) TokenMethod() infrav1exp.EKSTokenMethod {
 func (s *ManagedControlPlaneScope) EKSClusterName() *string {
 	return s.ControlPlane.Status.EKSClusterName
 }
+
+// ImageLookupFormat returns the format string to use when looking up AMIs
+func (s *ManagedControlPlaneScope) ImageLookupFormat() string {
+	return ""
+}
+
+// ImageLookupOrg returns the organization name to use when looking up AMIs
+func (s *ManagedControlPlaneScope) ImageLookupOrg() string {
+	return ""
+}
+
+// ImageLookupBaseOS returns the base operating system name to use when looking up AMIs
+func (s *ManagedControlPlaneScope) ImageLookupBaseOS() string {
+	return ""
+}

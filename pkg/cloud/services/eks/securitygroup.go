@@ -61,7 +61,7 @@ func (s *Service) reconcileSecurityGroup(cluster *eks.Cluster) error {
 		Tags: converters.TagsToMap(output.SecurityGroups[0].Tags),
 	}
 
-	if s.scope.ControlPlane.Status.Network.SecurityGroups == nil {
+	if s.scope.Network().SecurityGroups == nil {
 		s.scope.ControlPlane.Status.Network.SecurityGroups = make(map[infrav1.SecurityGroupRole]infrav1.SecurityGroup)
 	}
 

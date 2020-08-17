@@ -62,12 +62,9 @@ func (s *Service) ReconcileSecurityGroups() error {
 	}
 
 	// Declare all security group roles that the reconcile loop takes care of.
-	roles := []infrav1.SecurityGroupRole{
-		infrav1.SecurityGroupBastion,
-		infrav1.SecurityGroupAPIServerLB,
-		infrav1.SecurityGroupLB,
-		infrav1.SecurityGroupControlPlane,
-		infrav1.SecurityGroupNode,
+	roles := []infrav1.SecurityGroupRole{infrav1.SecurityGroupLB}
+	if s.scope.InfraCluster().GetObjectKind().GroupVersionKind().Kind != "AWSManagedControlPlane" {
+		roles = append(roles, infrav1.SecurityGroupBastion, infrav1.SecurityGroupAPIServerLB, infrav1.SecurityGroupControlPlane, infrav1.SecurityGroupNode)
 	}
 
 	// First iteration makes sure that the security group are valid and fully created.
@@ -113,6 +110,11 @@ func (s *Service) ReconcileSecurityGroups() error {
 			// skip rule reconciliation, as we expect the in-cluster cloud integration to manage them
 			continue
 		}
+
+		if i == infrav1.SecurityGroupNode && s.scope.InfraCluster().GetObjectKind().GroupVersionKind().Kind == "AWSManagedControlPlane" {
+			continue
+		}
+
 		current := sg.IngressRules
 
 		want, err := s.getSecurityGroupIngressRules(i)
