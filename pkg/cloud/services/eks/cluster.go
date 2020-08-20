@@ -51,10 +51,7 @@ const (
 func (s *Service) reconcileCluster(ctx context.Context) error {
 	s.scope.V(2).Info("Reconciling EKS cluster")
 
-	eksClusterName, err := GenerateEKSName(s.scope.Cluster.Name, s.scope.Namespace())
-	if err != nil {
-		return fmt.Errorf("generating eks cluster name for %s/%s: %w", s.scope.Name(), s.scope.Namespace(), err)
-	}
+	eksClusterName := s.scope.EKSClusterName()
 
 	cluster, err := s.describeEKSCluster(eksClusterName)
 	if err != nil {
@@ -68,7 +65,6 @@ func (s *Service) reconcileCluster(ctx context.Context) error {
 		}
 		s.scope.Info("Created EKS control plane", "cluster-name", s.scope.EKSClusterName())
 	} else {
-		s.scope.ControlPlane.Status.EKSClusterName = cluster.Name
 		s.scope.V(2).Info("Found EKS control plane", "cluster-name", s.scope.EKSClusterName())
 	}
 
@@ -156,7 +152,7 @@ func (s *Service) setStatus(cluster *eks.Cluster) error {
 // deleteCluster deletes an EKS cluster
 func (s *Service) deleteCluster() error {
 	eksClusterName := s.scope.EKSClusterName()
-	cluster, err := s.describeEKSCluster(*eksClusterName)
+	cluster, err := s.describeEKSCluster(eksClusterName)
 	if err != nil {
 		if awserrors.IsNotFound(err) {
 			s.scope.V(4).Info("eks cluster does not exist")
@@ -347,7 +343,6 @@ func (s *Service) createCluster(eksClusterName string) (*eks.Cluster, error) {
 			}
 			return false, err
 		}
-		s.scope.ControlPlane.Status.EKSClusterName = &eksClusterName
 		return true, nil
 	}, awserrors.ResourceNotFound); err != nil { //TODO: change the error that can be retried
 		record.Warnf(s.scope.ControlPlane, "FaiedCreateEKSCluster", "Failed to create a new EKS cluster: %v", err)
@@ -361,7 +356,7 @@ func (s *Service) createCluster(eksClusterName string) (*eks.Cluster, error) {
 func (s *Service) waitForClusterActive() (*eks.Cluster, error) {
 	eksClusterName := s.scope.EKSClusterName()
 	req := eks.DescribeClusterInput{
-		Name: eksClusterName,
+		Name: aws.String(eksClusterName),
 	}
 	if err := s.EKSClient.WaitUntilClusterActive(&req); err != nil {
 		return nil, errors.Wrapf(err, "failed to wait for eks control plane %q", *req.Name)
@@ -369,7 +364,7 @@ func (s *Service) waitForClusterActive() (*eks.Cluster, error) {
 
 	s.scope.Info("EKS control plane is now available", "cluster-name", eksClusterName)
 
-	cluster, err := s.describeEKSCluster(*eksClusterName)
+	cluster, err := s.describeEKSCluster(eksClusterName)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to describe eks clusters")
 	}
@@ -382,7 +377,7 @@ func (s *Service) waitForClusterActive() (*eks.Cluster, error) {
 
 func (s *Service) reconcileClusterConfig(cluster *eks.Cluster) error {
 	var needsUpdate bool
-	input := eks.UpdateClusterConfigInput{Name: s.scope.EKSClusterName()}
+	input := eks.UpdateClusterConfigInput{Name: aws.String(s.scope.EKSClusterName())}
 
 	if updateLogging := s.reconcileLogging(cluster.Logging); updateLogging != nil {
 		needsUpdate = true
@@ -473,7 +468,7 @@ func (s *Service) reconcileClusterVersion(_ context.Context, cluster *eks.Cluste
 		nextVersionString := fmt.Sprintf("%d.%d", nextVersion.Major(), nextVersion.Minor())
 
 		input := &eks.UpdateClusterVersionInput{
-			Name:    s.scope.EKSClusterName(),
+			Name:    aws.String(s.scope.EKSClusterName()),
 			Version: &nextVersionString,
 		}
 

@@ -45,7 +45,7 @@ func (s *Service) getEKSTagParams(id string) *infrav1.BuildParams {
 		ClusterName: s.scope.Name(),
 		ResourceID:  id,
 		Lifecycle:   infrav1.ResourceLifecycleOwned,
-		Name:        name,
+		Name:        aws.String(name),
 		Role:        aws.String(infrav1.CommonRoleTagValue),
 		Additional:  s.scope.AdditionalTags(),
 	}

@@ -94,6 +94,9 @@ type AWSManagedControlPlaneSpec struct {
 	// +kubebuilder:default=iam-authenticator
 	// +kubebuilder:validation:Enum=iam-authenticator;aws-cli
 	TokenMethod *EKSTokenMethod `json:"tokenMethod,omitempty"`
+
+	// EKSClusterName is the name to use for EKS cluster creation
+	EKSClusterName string `json:"eksClusterName"`
 }
 
 // EndpointAccess specifies how control plane endpoints are accessible
@@ -119,9 +122,6 @@ type EncryptionConfig struct {
 
 // AWSManagedControlPlaneStatus defines the observed state of AWSManagedControlPlane
 type AWSManagedControlPlaneStatus struct {
-	// EKSClusterName holds the name of the actual EKS cluster in AWS
-	// +optional
-	EKSClusterName *string `json:"eksClusterName,omitempty"`
 	// Networks holds details about the AWS networking resources used by the control plane
 	// +optional
 	Network infrav1.Network `json:"network,omitempty"`

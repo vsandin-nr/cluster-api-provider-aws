@@ -110,7 +110,7 @@ func (s *Service) createCAPIKubeconfigSecret(ctx context.Context, cluster *eks.C
 	controllerOwnerRef := *metav1.NewControllerRef(s.scope.ControlPlane, infrav1exp.GroupVersion.WithKind("AWSManagedControlPlane"))
 
 	clusterName := s.scope.EKSClusterName()
-	userName := s.getKubeConfigUserName(*clusterName, false)
+	userName := s.getKubeConfigUserName(clusterName, false)
 
 	cfg, err := s.createBaseKubeConfig(cluster, userName)
 	if err != nil {
@@ -182,7 +182,7 @@ func (s *Service) createUserKubeconfigSecret(ctx context.Context, cluster *eks.C
 	controllerOwnerRef := *metav1.NewControllerRef(s.scope.ControlPlane, infrav1exp.GroupVersion.WithKind("AWSManagedControlPlane"))
 
 	clusterName := s.scope.EKSClusterName()
-	userName := s.getKubeConfigUserName(*clusterName, true)
+	userName := s.getKubeConfigUserName(clusterName, true)
 
 	cfg, err := s.createBaseKubeConfig(cluster, userName)
 	if err != nil {
@@ -196,7 +196,7 @@ func (s *Service) createUserKubeconfigSecret(ctx context.Context, cluster *eks.C
 		execConfig.Args = []string{
 			"token",
 			"-i",
-			*clusterName,
+			clusterName,
 		}
 	case infrav1exp.EKSTokenMethodAWSCli:
 		execConfig.Command = "aws"
@@ -204,7 +204,7 @@ func (s *Service) createUserKubeconfigSecret(ctx context.Context, cluster *eks.C
 			"eks",
 			"get-token",
 			"--cluster-name",
-			*clusterName,
+			clusterName,
 		}
 	default:
 		return fmt.Errorf("unknown token method %s", s.scope.TokenMethod())
@@ -231,7 +231,7 @@ func (s *Service) createUserKubeconfigSecret(ctx context.Context, cluster *eks.C
 
 func (s *Service) createBaseKubeConfig(cluster *eks.Cluster, userName string) (*api.Config, error) {
 	clusterName := s.scope.EKSClusterName()
-	contextName := fmt.Sprintf("%s@%s", userName, *clusterName)
+	contextName := fmt.Sprintf("%s@%s", userName, clusterName)
 
 	certData, err := base64.StdEncoding.DecodeString(*cluster.CertificateAuthority.Data)
 	if err != nil {
@@ -241,14 +241,14 @@ func (s *Service) createBaseKubeConfig(cluster *eks.Cluster, userName string) (*
 	cfg := &api.Config{
 		APIVersion: api.SchemeGroupVersion.Version,
 		Clusters: map[string]*api.Cluster{
-			*clusterName: {
+			clusterName: {
 				Server:                   *cluster.Endpoint,
 				CertificateAuthorityData: certData,
 			},
 		},
 		Contexts: map[string]*api.Context{
 			contextName: {
-				Cluster:  *clusterName,
+				Cluster:  clusterName,
 				AuthInfo: userName,
 			},
 		},
@@ -262,7 +262,7 @@ func (s *Service) generateToken() (string, error) {
 	eksClusterName := s.scope.EKSClusterName()
 
 	req, _ := s.STSClient.GetCallerIdentityRequest(&sts.GetCallerIdentityInput{})
-	req.HTTPRequest.Header.Add(clusterNameHeader, *eksClusterName)
+	req.HTTPRequest.Header.Add(clusterNameHeader, eksClusterName)
 
 	presignedURL, err := req.Presign(tokenAgeMins * time.Minute)
 	if err != nil {

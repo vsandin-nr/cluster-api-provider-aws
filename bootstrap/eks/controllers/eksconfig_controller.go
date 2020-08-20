@@ -186,7 +186,7 @@ func (r *EKSConfigReconciler) joinWorker(ctx context.Context, log logr.Logger, c
 
 	// generate userdata
 	userDataScript, err := userdata.NewNode(&userdata.NodeInput{
-		ClusterName:      *controlPlane.Status.EKSClusterName,
+		ClusterName:      controlPlane.Spec.EKSClusterName,
 		KubeletExtraArgs: config.Spec.KubeletExtraArgs,
 	})
 	if err != nil {

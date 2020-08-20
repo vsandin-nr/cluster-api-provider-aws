@@ -123,7 +123,7 @@ func (s *ManagedControlPlaneScope) SecurityGroups() map[infrav1.SecurityGroupRol
 
 // Name returns the cluster name.
 func (s *ManagedControlPlaneScope) Name() string {
-	return s.Cluster.Name
+	return s.ControlPlane.Spec.EKSClusterName
 }
 
 // Namespace returns the cluster namespace.
@@ -228,8 +228,8 @@ func (s *ManagedControlPlaneScope) TokenMethod() infrav1exp.EKSTokenMethod {
 }
 
 // EKSClusterName gets the name of the EKS cluster in AWS
-func (s *ManagedControlPlaneScope) EKSClusterName() *string {
-	return s.ControlPlane.Status.EKSClusterName
+func (s *ManagedControlPlaneScope) EKSClusterName() string {
+	return s.ControlPlane.Spec.EKSClusterName
 }
 
 // ImageLookupFormat returns the format string to use when looking up AMIs

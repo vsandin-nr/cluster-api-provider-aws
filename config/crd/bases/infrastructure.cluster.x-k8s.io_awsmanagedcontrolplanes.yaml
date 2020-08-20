@@ -95,6 +95,9 @@ spec:
                 - host
                 - port
                 type: object
+              eksClusterName:
+                description: EKSClusterName is the name to use for EKS cluster creation
+                type: string
               encryptionConfig:
                 description: EncryptionConfig specifies the encryption configuration for the cluster
                 properties:
@@ -270,6 +273,8 @@ spec:
                 minLength: 2
                 pattern: ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.?$
                 type: string
+            required:
+            - eksClusterName
             type: object
           status:
             description: AWSManagedControlPlaneStatus defines the observed state of AWSManagedControlPlane
@@ -409,9 +414,6 @@ spec:
                   - type
                   type: object
                 type: array
-              eksClusterName:
-                description: EKSClusterName holds the name of the actual EKS cluster in AWS
-                type: string
               failureDomains:
                 additionalProperties:
                   description: FailureDomainSpec is the Schema for Cluster API failure domains. It allows controllers to understand how many failure domains a cluster can optionally span across.
