@@ -19,10 +19,6 @@ hybrid deployments of Kubernetes. It is built atop the lessons learned from
 previous cluster managers such as [kops][kops] and
 [kubicorn][kubicorn].
 
-## Documentation
-
-Please see our [book](https://cluster-api-aws.sigs.k8s.io) for in-depth documentation.
-
 ## Launching a Kubernetes cluster on AWS
 
 Check out the [Cluster API Quick Start](https://cluster-api.sigs.k8s.io/user/quick-start.html) for launching a
@@ -109,6 +105,10 @@ Note: These AMIs are not updated for security fixes and it is recommended to alw
 |                          | v1.19.2                 |
 
 ------
+
+## Documentation
+
+Documentation is in the `/docs` directory, and the [index is here](docs/README.md).
 
 ## Getting involved and contributing
 
