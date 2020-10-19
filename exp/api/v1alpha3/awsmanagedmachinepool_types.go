@@ -124,8 +124,7 @@ type ManagedMachinePoolScaling struct {
 
 // ManagedRemoteAccess specifies remote access settings for EC2 instances
 type ManagedRemoteAccess struct {
-	// SSHKeyName specifies which EC2 SSH key can be used to access machines.
-	// If left empty, the key from the control plane is used.
+	// SSHKeyName specifies which EC2 SSH key can be used to access machines
 	SSHKeyName *string `json:"sshKeyName,omitempty"`
 
 	// SourceSecurityGroups specifies which security groups are allowed access
