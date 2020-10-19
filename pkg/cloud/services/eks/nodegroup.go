@@ -68,9 +68,6 @@ func (s *NodegroupService) scalingConfig() *eks.NodegroupScalingConfig {
 		DesiredSize: aws.Int64(int64(replicas)),
 	}
 	scaling := s.scope.ManagedMachinePool.Spec.Scaling
-	if scaling == nil {
-		return &cfg
-	}
 	if scaling.MaxSize != nil {
 		cfg.MaxSize = aws.Int64(int64(*scaling.MaxSize))
 	}
