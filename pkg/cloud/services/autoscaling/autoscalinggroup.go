@@ -154,7 +154,6 @@ func (s *Service) CreateASG(scope *scope.MachinePoolScope) (*expinfrav1.AutoScal
 		MaxSize:              scope.AWSMachinePool.Spec.MaxSize,
 		MinSize:              scope.AWSMachinePool.Spec.MinSize,
 		Subnets:              subnetIDs,
-		DefaultCoolDown:      scope.AWSMachinePool.Spec.DefaultCoolDown,
 		MixedInstancesPolicy: scope.AWSMachinePool.Spec.MixedInstancesPolicy,
 	}
 
@@ -200,7 +199,6 @@ func (s *Service) runPool(i *expinfrav1.AutoScalingGroup, launchTemplateID strin
 		MaxSize:              aws.Int64(int64(i.MaxSize)),
 		MinSize:              aws.Int64(int64(i.MinSize)),
 		VPCZoneIdentifier:    aws.String(strings.Join(i.Subnets, ", ")),
-		DefaultCooldown:      aws.Int64(int64(i.DefaultCoolDown.Duration.Seconds())),
 	}
 
 	if i.DesiredCapacity != nil {
