@@ -1125,8 +1125,6 @@ func TestCreateInstance(t *testing.T) {
 			machine: clusterv1.Machine{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"set": "node"},
-					Namespace: "default",
-					Name: "machine-aws-test1",
 				},
 				Spec: clusterv1.MachineSpec{
 					Bootstrap: clusterv1.Bootstrap{
@@ -1200,10 +1198,6 @@ func TestCreateInstance(t *testing.T) {
 							{
 								ResourceType: aws.String("instance"),
 								Tags: []*ec2.Tag{
-									{
-										Key:   aws.String("MachineName"),
-										Value: aws.String("default/machine-aws-test1"),
-									},
 									{
 										Key:   aws.String("Name"),
 										Value: aws.String("aws-test1"),

@@ -18,10 +18,7 @@ package v1alpha3
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"k8s.io/apimachinery/pkg/types"
 	"reflect"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 )
 
 // Tags defines a map of tags.
@@ -121,9 +118,6 @@ const (
 
 	// PrivateRoleTagValue describes the value for the private role
 	PrivateRoleTagValue = "private"
-
-	// MachineNameTagKey is the key for machine name
-	MachineNameTagKey = "MachineName"
 )
 
 // ClusterTagKey generates the key for resources associated with a cluster.
@@ -158,17 +152,6 @@ type BuildParams struct {
 	// Any additional tags to be added to the resource.
 	// +optional
 	Additional Tags
-
-	// machineName is the name of the Machine object associated with the resource, only applicable to vm resources
-	// When set, this will be applied as "MachineName" on AWS
-	machineName *string
-}
-
-// WithMachineName sets the namespaced machine name
-func (b BuildParams) WithMachineName(m *clusterv1.Machine) BuildParams {
-	machineNamespacedName := types.NamespacedName{Namespace: m.Namespace, Name: m.Name}
-	b.machineName = aws.String(machineNamespacedName.String())
-	return b
 }
 
 // Build builds tags including the cluster tag and returns them in map form.
@@ -185,10 +168,6 @@ func Build(params BuildParams) Tags {
 
 	if params.Name != nil {
 		tags["Name"] = *params.Name
-	}
-
-	if params.machineName != nil {
-		tags[MachineNameTagKey] = *params.machineName
 	}
 
 	return tags
