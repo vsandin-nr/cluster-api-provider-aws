@@ -48,7 +48,6 @@ import (
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/ec2"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/elb"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/secretsmanager"
-	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/ssm"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/userdata"
 )
 
@@ -58,8 +57,7 @@ type AWSMachineReconciler struct {
 	Log                          logr.Logger
 	Recorder                     record.EventRecorder
 	ec2ServiceFactory            func(scope.EC2Scope) services.EC2MachineInterface
-	secretsManagerServiceFactory func(cloud.ClusterScoper) services.SecretInterface
-	SSMServiceFactory            func(cloud.ClusterScoper) services.SecretInterface
+	secretsManagerServiceFactory func(cloud.ClusterScoper) services.SecretsManagerInterface
 	Endpoints                    []scope.ServiceEndpoint
 }
 
@@ -76,29 +74,12 @@ func (r *AWSMachineReconciler) getEC2Service(scope scope.EC2Scope) services.EC2M
 	return ec2.NewService(scope)
 }
 
-func (r *AWSMachineReconciler) getSecretsManagerService(scope cloud.ClusterScoper) services.SecretInterface {
+func (r *AWSMachineReconciler) getSecretsManagerService(scope cloud.ClusterScoper) services.SecretsManagerInterface {
 	if r.secretsManagerServiceFactory != nil {
 		return r.secretsManagerServiceFactory(scope)
 	}
 
 	return secretsmanager.NewService(scope)
-}
-
-func (r *AWSMachineReconciler) getSSMService(scope cloud.ClusterScoper) services.SecretInterface {
-	if r.SSMServiceFactory != nil {
-		return r.SSMServiceFactory(scope)
-	}
-	return ssm.NewService(scope)
-}
-
-func (r *AWSMachineReconciler) getSecretService(machineScope *scope.MachineScope, scope cloud.ClusterScoper) (services.SecretInterface, error) {
-	switch machineScope.SecureSecretsBackend() {
-	case infrav1.SecretBackendSSMParameterStore:
-		return r.getSSMService(scope), nil
-	case infrav1.SecretBackendSecretsManager:
-		return r.getSecretsManagerService(scope), nil
-	}
-	return nil, errors.New("invalid secret backend")
 }
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awsmachines,verbs=get;list;watch;create;update;patch;delete
@@ -294,10 +275,7 @@ func (r *AWSMachineReconciler) reconcileDelete(machineScope *scope.MachineScope,
 	machineScope.Info("Handling deleted AWSMachine")
 
 	ec2Service := r.getEC2Service(ec2Scope)
-	secretSvc, err := r.getSecretService(machineScope, clusterScope)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	secretSvc := r.getSecretsManagerService(clusterScope)
 
 	if err := r.deleteEncryptedBootstrapDataSecret(machineScope, secretSvc); err != nil {
 		return ctrl.Result{}, err
@@ -426,10 +404,7 @@ func (r *AWSMachineReconciler) findInstance(scope *scope.MachineScope, ec2svc se
 func (r *AWSMachineReconciler) reconcileNormal(_ context.Context, machineScope *scope.MachineScope, clusterScope cloud.ClusterScoper, ec2Scope scope.EC2Scope, elbScope scope.ELBScope) (ctrl.Result, error) {
 	machineScope.Info("Reconciling AWSMachine")
 
-	secretSvc, err := r.getSecretService(machineScope, clusterScope)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	secretSvc := r.getSecretsManagerService(clusterScope)
 
 	// If the AWSMachine is in an error state, return early.
 	if machineScope.HasFailed() {
@@ -567,7 +542,7 @@ func (r *AWSMachineReconciler) reconcileNormal(_ context.Context, machineScope *
 	return ctrl.Result{}, nil
 }
 
-func (r *AWSMachineReconciler) deleteEncryptedBootstrapDataSecret(machineScope *scope.MachineScope, secretSvc services.SecretInterface) error {
+func (r *AWSMachineReconciler) deleteEncryptedBootstrapDataSecret(machineScope *scope.MachineScope, secretSvc services.SecretsManagerInterface) error {
 	// do nothing if there isn't a secret
 	if machineScope.GetSecretPrefix() == "" {
 		return nil
@@ -580,13 +555,13 @@ func (r *AWSMachineReconciler) deleteEncryptedBootstrapDataSecret(machineScope *
 	if !machineScope.HasFailed() && machineScope.InstanceIsOperational() && machineScope.Machine.Status.NodeRef == nil && !machineScope.AWSMachineIsDeleted() {
 		return nil
 	}
-	machineScope.Info("Deleting unneeded entry from AWS Secret", "secretPrefix", machineScope.GetSecretPrefix())
+	machineScope.Info("Deleting unneeded entry from AWS Secrets Manager", "secretPrefix", machineScope.GetSecretPrefix())
 	if err := secretSvc.Delete(machineScope); err != nil {
-		machineScope.Info("Unable to delete entries from AWS Secret containing encrypted userdata", "secretPrefix", machineScope.GetSecretPrefix())
-		r.Recorder.Eventf(machineScope.AWSMachine, corev1.EventTypeWarning, "FailedDeleteEncryptedBootstrapDataSecrets", "AWS Secret entries containing userdata not deleted")
+		machineScope.Info("Unable to delete entries from AWS Secrets Manager containing encrypted userdata", "secretPrefix", machineScope.GetSecretPrefix())
+		r.Recorder.Eventf(machineScope.AWSMachine, corev1.EventTypeWarning, "FailedDeleteEncryptedBootstrapDataSecrets", "AWS Secret Manager entries containing userdata not deleted")
 		return err
 	}
-	r.Recorder.Eventf(machineScope.AWSMachine, corev1.EventTypeNormal, "SuccessfulDeleteEncryptedBootstrapDataSecrets", "AWS Secret entries containing userdata deleted")
+	r.Recorder.Eventf(machineScope.AWSMachine, corev1.EventTypeNormal, "SuccessfulDeleteEncryptedBootstrapDataSecrets", "AWS Secret Manager entries containing userdata deleted")
 
 	machineScope.DeleteSecretPrefix()
 	machineScope.SetSecretCount(0)
@@ -594,7 +569,7 @@ func (r *AWSMachineReconciler) deleteEncryptedBootstrapDataSecret(machineScope *
 	return nil
 }
 
-func (r *AWSMachineReconciler) createInstance(scope *scope.MachineScope, ec2svc services.EC2MachineInterface, secretSvc services.SecretInterface) (*infrav1.Instance, error) {
+func (r *AWSMachineReconciler) createInstance(scope *scope.MachineScope, ec2svc services.EC2MachineInterface, secretSvc services.SecretsManagerInterface) (*infrav1.Instance, error) {
 	scope.Info("Creating EC2 instance")
 
 	userData, err := scope.GetRawBootstrapData()
@@ -609,7 +584,7 @@ func (r *AWSMachineReconciler) createInstance(scope *scope.MachineScope, ec2svc 
 			return nil, err
 		}
 		prefix, chunks, serviceErr := secretSvc.Create(scope, compressedUserData)
-		// Only persist the AWS Secret Backend entries if there is at least one
+		// Only persist the AWS Secrets Manager entries if there is at least one
 		if chunks > 0 {
 			scope.SetSecretPrefix(prefix)
 			scope.SetSecretCount(chunks)
@@ -619,13 +594,19 @@ func (r *AWSMachineReconciler) createInstance(scope *scope.MachineScope, ec2svc 
 			return nil, err
 		}
 		if serviceErr != nil {
-			r.Recorder.Eventf(scope.AWSMachine, corev1.EventTypeWarning, "FailedCreateAWSSecrets", serviceErr.Error())
+			r.Recorder.Eventf(scope.AWSMachine, corev1.EventTypeWarning, "FailedCreateAWSSecretsManagerSecrets", serviceErr.Error())
 			scope.Error(serviceErr, "Failed to create AWS Secret entry", "secretPrefix", prefix)
 			return nil, serviceErr
 		}
-		encryptedCloudInit, err := secretSvc.UserData(scope.GetSecretPrefix(), scope.GetSecretCount(), scope.InfraCluster.Region(), r.Endpoints)
+		var secretsManagerEndpoint string = ""
+		for _, v := range r.Endpoints {
+			if v.ServiceID == "secretsmanager" {
+				secretsManagerEndpoint = v.URL
+			}
+		}
+		encryptedCloudInit, err := secretsmanager.GenerateCloudInitMIMEDocument(scope.GetSecretPrefix(), scope.GetSecretCount(), scope.InfraCluster.Region(), secretsManagerEndpoint)
 		if err != nil {
-			r.Recorder.Eventf(scope.AWSMachine, corev1.EventTypeWarning, "FailedGenerateAWSSecretsCloudInit", err.Error())
+			r.Recorder.Eventf(scope.AWSMachine, corev1.EventTypeWarning, "FailedGenerateAWSSecretsManagerCloudInit", err.Error())
 			return nil, err
 		}
 		userData = encryptedCloudInit

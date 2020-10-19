@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/converters"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/scope"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/wait"
-	"sigs.k8s.io/cluster-api-provider-aws/pkg/internal/bytes"
 )
 
 const (
@@ -69,7 +68,7 @@ func (s *Service) Create(m *scope.MachineScope, data []byte) (string, int32, err
 	// Split the data into chunks and create the secrets on demand.
 	chunks := int32(0)
 	var err error
-	bytes.Split(data, false, maxSecretSizeBytes, func(chunk []byte) {
+	splitBytes(data, maxSecretSizeBytes, func(chunk []byte) {
 		name := fmt.Sprintf("%s-%d", prefix, chunks)
 		retryFunc := func() (bool, error) { return s.retryableCreateSecret(name, chunk, tags) }
 		// Default timeout is 5 mins, but if Secrets Manager has got to the state where the timeout is reached,

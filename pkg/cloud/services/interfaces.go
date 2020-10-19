@@ -64,10 +64,9 @@ type EC2MachineInterface interface {
 	LaunchTemplateNeedsUpdate(scope *scope.MachinePoolScope, incoming *expinfrav1.AWSLaunchTemplate, existing *expinfrav1.AWSLaunchTemplate) (bool, error)
 }
 
-// SecretInterface encapsulated the methods exposed to the
+// SecretsManagerInterface encapsulated the methods exposed to the
 // machine actuator
-type SecretInterface interface {
+type SecretsManagerInterface interface {
 	Delete(m *scope.MachineScope) error
 	Create(m *scope.MachineScope, data []byte) (string, int32, error)
-	UserData(secretPrefix string, chunks int32, region string, endpoints []scope.ServiceEndpoint) ([]byte, error)
 }

@@ -64,7 +64,6 @@ const (
 	MultiAzFlavor                = "multi-az"
 	LimitAzFlavor                = "limit-az"
 	SpotInstancesFlavor          = "spot-instances"
-	SSMFlavor                    = "ssm"
 	StorageClassFailureZoneLabel = "failure-domain.beta.kubernetes.io/zone"
 )
 
@@ -393,10 +392,6 @@ func newBootstrapTemplate() *cfn_bootstrap.Template {
 	By("Creating a bootstrap AWSIAMConfiguration")
 	t := cfn_bootstrap.NewTemplate()
 	t.Spec.BootstrapUser.Enable = true
-	t.Spec.SecureSecretsBackends = []v1alpha3.SecretBackend{
-		v1alpha3.SecretBackendSecretsManager,
-		v1alpha3.SecretBackendSSMParameterStore,
-	}
 	region, err := credentials.ResolveRegion("")
 	Expect(err).NotTo(HaveOccurred())
 	t.Spec.Region = region

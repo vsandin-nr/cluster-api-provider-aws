@@ -97,8 +97,6 @@ providers:
     files:
       # Add a cluster template
       - sourcePath: "./infrastructure-aws/cluster-template.yaml"
-      - sourcePath: "./infrastructure-aws/cluster-template-ssm.yaml"
-        targetName: "cluster-template-ssm.yaml"
       - sourcePath: "./infrastructure-aws/cluster-template-multi-az.yaml"
         targetName: "cluster-template-multi-az.yaml"
       - sourcePath: "./infrastructure-aws/cluster-template-limit-az.yaml"

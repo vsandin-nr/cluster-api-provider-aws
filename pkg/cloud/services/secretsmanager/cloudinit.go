@@ -17,28 +17,84 @@ limitations under the License.
 package secretsmanager
 
 import (
-	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/scope"
-	"sigs.k8s.io/cluster-api-provider-aws/pkg/internal/mime"
+	"bytes"
+	"fmt"
+	"html/template"
+	"mime/multipart"
+	"net/textproto"
+	"strings"
 )
 
 const (
-	serviceID = "secretsmanager"
+	includePart = "file:///etc/secret-userdata.txt\n"
 )
 
-// UserData creates a multi-part MIME document including a script boothook to
+var (
+	includeType = textproto.MIMEHeader{
+		"content-type": {"text/x-include-url"},
+	}
+
+	boothookType = textproto.MIMEHeader{
+		"content-type": {"text/cloud-boothook"},
+	}
+
+	multipartHeader = strings.Join([]string{
+		"MIME-Version: 1.0",
+		"Content-Type: multipart/mixed; boundary=\"%s\"",
+		"\n",
+	}, "\n")
+
+	secretFetchTemplate = template.Must(template.New("secret-fetch-script").Parse(secretFetchScript))
+)
+
+type scriptVariables struct {
+	SecretPrefix string
+	Chunks       int32
+	Region       string
+	Endpoint     string
+}
+
+// GenerateCloudInitMIMEDocument creates a multi-part MIME document including a script boothook to
 // download userdata from AWS Secrets Manager and then restart cloud-init, and an include part
 // specifying the on disk location of the new userdata
-func (s *Service) UserData(secretPrefix string, chunks int32, region string, endpoints []scope.ServiceEndpoint) ([]byte, error) {
-	serviceEndpoint := ""
-	for _, v := range endpoints {
-		if v.ServiceID == serviceID {
-			serviceEndpoint = v.URL
-		}
-	}
-	userData, err := mime.GenerateInitDocument(secretPrefix, chunks, region, serviceEndpoint, secretFetchScript)
+func GenerateCloudInitMIMEDocument(secretPrefix string, chunks int32, region string, endpoint string) ([]byte, error) {
+	var buf bytes.Buffer
+	mpWriter := multipart.NewWriter(&buf)
+	buf.WriteString(fmt.Sprintf(multipartHeader, mpWriter.Boundary()))
+	scriptWriter, err := mpWriter.CreatePart(boothookType)
 	if err != nil {
 		return []byte{}, err
 	}
 
-	return userData, nil
+	scriptVariables := scriptVariables{
+		SecretPrefix: secretPrefix,
+		Chunks:       chunks,
+		Region:       region,
+		Endpoint:     endpoint,
+	}
+
+	var scriptBuf bytes.Buffer
+	if err := secretFetchTemplate.Execute(&scriptBuf, scriptVariables); err != nil {
+		return []byte{}, err
+	}
+	_, err = scriptWriter.Write(scriptBuf.Bytes())
+	if err != nil {
+		return []byte{}, err
+	}
+
+	includeWriter, err := mpWriter.CreatePart(includeType)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	_, err = includeWriter.Write([]byte(includePart))
+	if err != nil {
+		return []byte{}, err
+	}
+
+	if err := mpWriter.Close(); err != nil {
+		return []byte{}, err
+	}
+
+	return buf.Bytes(), nil
 }

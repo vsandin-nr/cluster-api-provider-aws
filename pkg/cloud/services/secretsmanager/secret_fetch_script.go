@@ -155,7 +155,7 @@ get_secret_value() {
   data=$(
     set +e
     set +o pipefail
-    aws secretsmanager ${ENDPOINT} --region ${REGION} get-secret-value --output text --query 'SecretBinary' --secret-id "${id}" 2>&1
+    aws secretsmanager --region ${REGION} get-secret-value --output text --query 'SecretBinary' --secret-id "${id}" 2>&1
   )
   local get_return=$?
   check_aws_command "SecretsManager::GetSecretValue" "${get_return}" "${data}"

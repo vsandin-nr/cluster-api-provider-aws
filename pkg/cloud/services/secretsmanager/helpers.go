@@ -14,20 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mime
+package secretsmanager
 
-import (
-	"bytes"
-	"net/mail"
-	"testing"
-)
+import "bytes"
 
-func TestGenerateInitDocument(t *testing.T) {
-	secretARN := "secretARN"
-	doc, _ := GenerateInitDocument(secretARN, 1, "eu-west-1", "localhost", "abc123")
-
-	_, err := mail.ReadMessage(bytes.NewBuffer(doc))
-	if err != nil {
-		t.Fatalf("Cannot parse MIME doc: %+v\n%s", err, string(doc))
+func splitBytes(data []byte, maxSize int, iterFunc func([]byte)) {
+	buff := bytes.NewBuffer(data)
+	for {
+		chunk := buff.Next(maxSize)
+		if len(chunk) == 0 {
+			return
+		}
+		iterFunc(chunk)
 	}
 }
