@@ -17,10 +17,11 @@ limitations under the License.
 package v1alpha3
 
 import (
+	"regexp"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"regexp"
 )
 
 func aggregateObjErrors(gk schema.GroupKind, name string, allErrs field.ErrorList) error {
@@ -38,16 +39,17 @@ func aggregateObjErrors(gk schema.GroupKind, name string, allErrs field.ErrorLis
 func isValidSSHKey(sshKey *string) field.ErrorList {
 	var allErrs field.ErrorList
 	if sshKey != nil {
-		reg, err := regexp.Compile("[^-A-Za-z0-9-]+")
+		reg, err := regexp.Compile("[^A-Za-z0-9_]+")
 		if err != nil {
-			return append(allErrs, field.Invalid(field.NewPath("sshKey"), sshKey, "SSHKey contains invalid character"))
+			return append(allErrs, field.Invalid(field.NewPath("sshKey"), sshKey, "SSHKey contains invalid character BLAH BLAH BLAH "))
 		}
 		processedString := reg.ReplaceAllString(*sshKey, "")
 		if *sshKey == processedString {
 			return nil
 		}
-		allErrs = append(allErrs, field.Invalid(field.NewPath("sshKey"), sshKey, "SSHKey contains invalid character"))
+		allErrs = append(allErrs, field.Invalid(field.NewPath("sshKey"), sshKey, "SSHKey contains invalid BLAH BLAH BLAH "))
 	}
 
 	return allErrs
+	// return nil
 }

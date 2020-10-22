@@ -159,7 +159,7 @@ func main() {
 		}
 
 		if feature.Gates.Enabled(feature.EKS) {
-			setupLog.Info("enabling EKS controllers")
+			setupLog.Info("enabling EKS controllers MYTU")
 
 			enableIAM := feature.Gates.Enabled(feature.EKSEnableIAM)
 			allowAddRoles := feature.Gates.Enabled(feature.EKSAllowAddRoles)
