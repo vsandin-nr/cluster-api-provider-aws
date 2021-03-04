@@ -251,7 +251,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 	}
 
 	// Set MachinePool replicas to ASG DesiredCapacity
-	if machinePoolScope.MachinePool.Spec.Replicas != asg.DesiredCapacity {
+	if *machinePoolScope.MachinePool.Spec.Replicas != *asg.DesiredCapacity {
 		machinePoolScope.Info("Setting MachinePool replicas to ASG DesiredCapacity", "Replicas", machinePoolScope.MachinePool.Spec.Replicas, "DesiredCapacity", asg.DesiredCapacity)
 		machinePoolScope.MachinePool.Spec.Replicas = asg.DesiredCapacity
 		machinePoolScope.PatchObject(machinePoolScope.MachinePool)
