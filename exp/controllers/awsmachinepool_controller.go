@@ -205,7 +205,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 	controllerutil.AddFinalizer(machinePoolScope.AWSMachinePool, infrav1exp.MachinePoolFinalizer)
 
 	// Register finalizer immediately to avoid orphaning AWS resources
-	if err := machinePoolScope.PatchObject(); err != nil {
+	if err := machinePoolScope.PatchObject(machinePoolScope.AWSMachinePool); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -254,6 +254,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 	if machinePoolScope.MachinePool.Spec.Replicas != asg.DesiredCapacity {
 		machinePoolScope.Info("Setting MachinePool replicas to ASG DesiredCapacity", "Replicas", machinePoolScope.MachinePool.Spec.Replicas, "DesiredCapacity", asg.DesiredCapacity)
 		machinePoolScope.MachinePool.Spec.Replicas = asg.DesiredCapacity
+		machinePoolScope.PatchObject(machinePoolScope.MachinePool)
 	}
 
 	if err := r.updatePool(machinePoolScope, clusterScope, asg); err != nil {
@@ -411,7 +412,7 @@ func (r *AWSMachinePoolReconciler) reconcileLaunchTemplate(machinePoolScope *sco
 
 		machinePoolScope.AWSMachinePool.Status.LaunchTemplateID = launchTemplateID
 
-		return machinePoolScope.PatchObject()
+		return machinePoolScope.PatchObject(machinePoolScope.AWSMachinePool)
 	}
 
 	annotation, err := r.machinePoolAnnotationJSON(machinePoolScope.AWSMachinePool, TagsLastAppliedAnnotation)

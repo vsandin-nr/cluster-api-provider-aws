@@ -22,6 +22,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/klogr"
 	"k8s.io/utils/pointer"
@@ -151,10 +152,10 @@ func (m *MachinePoolScope) AdditionalTags() infrav1.Tags {
 }
 
 // PatchObject persists the machinepool spec and status.
-func (m *MachinePoolScope) PatchObject() error {
+func (m *MachinePoolScope) PatchObject(obj runtime.Object) error {
 	return m.patchHelper.Patch(
 		context.TODO(),
-		m.AWSMachinePool,
+		obj,
 		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
 			expinfrav1.ASGReadyCondition,
 			expinfrav1.LaunchTemplateReadyCondition,
@@ -163,7 +164,7 @@ func (m *MachinePoolScope) PatchObject() error {
 
 // Close the MachinePoolScope by updating the machinepool spec, machine status.
 func (m *MachinePoolScope) Close() error {
-	return m.PatchObject()
+	return m.PatchObject(m.AWSMachinePool)
 }
 
 // SetAnnotation sets a key value annotation on the AWSMachine.
