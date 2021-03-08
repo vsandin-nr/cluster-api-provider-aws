@@ -38,13 +38,12 @@ import (
 type MachinePoolScope struct {
 	logr.Logger
 	client      client.Client
-	patchHelper *patch.Helper
+	PatchHelper *patch.Helper
 
-	Cluster          *clusterv1.Cluster
-	MachinePool      *expclusterv1.MachinePool
-	InfraCluster     EC2Scope
-	AWSMachinePool   *expinfrav1.AWSMachinePool
-	PatchMachinePool bool
+	Cluster        *clusterv1.Cluster
+	MachinePool    *expclusterv1.MachinePool
+	InfraCluster   EC2Scope
+	AWSMachinePool *expinfrav1.AWSMachinePool
 }
 
 // MachinePoolScopeParams defines a scope defined around a machine and its cluster.
@@ -97,7 +96,7 @@ func NewMachinePoolScope(params MachinePoolScopeParams) (*MachinePoolScope, erro
 	return &MachinePoolScope{
 		Logger:      params.Logger,
 		client:      params.Client,
-		patchHelper: helper,
+		PatchHelper: helper,
 
 		Cluster:        params.Cluster,
 		MachinePool:    params.MachinePool,
@@ -153,7 +152,7 @@ func (m *MachinePoolScope) AdditionalTags() infrav1.Tags {
 
 // PatchObject persists the machinepool spec and status.
 func (m *MachinePoolScope) PatchObject() error {
-	return m.patchHelper.Patch(
+	return m.PatchHelper.Patch(
 		context.TODO(),
 		m.AWSMachinePool,
 		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
@@ -164,23 +163,7 @@ func (m *MachinePoolScope) PatchObject() error {
 
 // Close the MachinePoolScope by updating the machinepool spec, machine status.
 func (m *MachinePoolScope) Close() error {
-
-	// Always patch the AWSMachinePool
-	err := m.PatchObject()
-	if err != nil {
-		return err
-	}
-
-	// On-demand MachinePool patch (always after AWSMachinePool)
-	if m.PatchMachinePool {
-		err := m.patchHelper.Patch(context.TODO(), m.MachinePool)
-		if err != nil {
-			return err
-		}
-		m.PatchMachinePool = false
-	}
-
-	return nil
+	return m.PatchObject()
 }
 
 // SetAnnotation sets a key value annotation on the AWSMachine.

@@ -251,10 +251,14 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 	}
 
 	// Set MachinePool replicas to ASG DesiredCapacity
-	if *machinePoolScope.MachinePool.Spec.Replicas != *asg.DesiredCapacity {
-		machinePoolScope.Info("Setting MachinePool replicas to ASG DesiredCapacity", "Replicas", machinePoolScope.MachinePool.Spec.Replicas, "DesiredCapacity", asg.DesiredCapacity)
-		machinePoolScope.MachinePool.Spec.Replicas = asg.DesiredCapacity
-		machinePoolScope.PatchMachinePool = true
+	if machinePoolScope.MachinePool.Spec.Strategy.Type == "externallyManaged" {
+		if *machinePoolScope.MachinePool.Spec.Replicas != *asg.DesiredCapacity {
+			machinePoolScope.Info("Setting MachinePool replicas to ASG DesiredCapacity", "Replicas", machinePoolScope.MachinePool.Spec.Replicas, "DesiredCapacity", asg.DesiredCapacity)
+			machinePoolScope.MachinePool.Spec.Replicas = asg.DesiredCapacity
+			if err := machinePoolScope.PatchHelper.Patch(context.TODO(), machinePoolScope.MachinePool); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
 	}
 
 	if err := r.updatePool(machinePoolScope, clusterScope, asg); err != nil {
