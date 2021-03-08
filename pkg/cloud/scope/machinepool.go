@@ -22,7 +22,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/klogr"
 	"k8s.io/utils/pointer"
@@ -41,10 +40,11 @@ type MachinePoolScope struct {
 	client      client.Client
 	patchHelper *patch.Helper
 
-	Cluster        *clusterv1.Cluster
-	MachinePool    *expclusterv1.MachinePool
-	InfraCluster   EC2Scope
-	AWSMachinePool *expinfrav1.AWSMachinePool
+	Cluster          *clusterv1.Cluster
+	MachinePool      *expclusterv1.MachinePool
+	InfraCluster     EC2Scope
+	AWSMachinePool   *expinfrav1.AWSMachinePool
+	PatchMachinePool bool
 }
 
 // MachinePoolScopeParams defines a scope defined around a machine and its cluster.
@@ -152,10 +152,10 @@ func (m *MachinePoolScope) AdditionalTags() infrav1.Tags {
 }
 
 // PatchObject persists the machinepool spec and status.
-func (m *MachinePoolScope) PatchObject(obj runtime.Object) error {
+func (m *MachinePoolScope) PatchObject() error {
 	return m.patchHelper.Patch(
 		context.TODO(),
-		obj,
+		m.AWSMachinePool,
 		patch.WithOwnedConditions{Conditions: []clusterv1.ConditionType{
 			expinfrav1.ASGReadyCondition,
 			expinfrav1.LaunchTemplateReadyCondition,
@@ -164,7 +164,23 @@ func (m *MachinePoolScope) PatchObject(obj runtime.Object) error {
 
 // Close the MachinePoolScope by updating the machinepool spec, machine status.
 func (m *MachinePoolScope) Close() error {
-	return m.PatchObject(m.AWSMachinePool)
+
+	// Always patch the AWSMachinePool
+	err := m.PatchObject()
+	if err != nil {
+		return err
+	}
+
+	// On-demand MachinePool patch (always after AWSMachinePool)
+	if m.PatchMachinePool {
+		err := m.patchHelper.Patch(context.TODO(), m.MachinePool)
+		if err != nil {
+			return err
+		}
+		m.PatchMachinePool = false
+	}
+
+	return nil
 }
 
 // SetAnnotation sets a key value annotation on the AWSMachine.
