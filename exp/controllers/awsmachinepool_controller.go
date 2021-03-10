@@ -250,12 +250,26 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(_ context.Context, machinePoo
 		return ctrl.Result{}, nil
 	}
 
-	// Set MachinePool replicas to ASG DesiredCapacity
 	if machinePoolScope.MachinePool.Spec.ExternallyManagedReplicaCount {
+		// Set AWSMachinePool minSize to the ASG value
+		if machinePoolScope.AWSMachinePool.Spec.MinSize != asg.MinSize {
+			machinePoolScope.Info("Setting AWSMachinePool minSize to the ASG value",
+				"local", machinePoolScope.AWSMachinePool.Spec.MinSize,
+				"external", asg.MinSize)
+			machinePoolScope.AWSMachinePool.Spec.MinSize = asg.MinSize
+		}
+		// Set AWSMachinePool maxSize to the ASG value
+		if machinePoolScope.AWSMachinePool.Spec.MaxSize != asg.MaxSize {
+			machinePoolScope.Info("Setting AWSMachinePool maxSize to the ASG value",
+				"local", machinePoolScope.AWSMachinePool.Spec.MaxSize,
+				"external", asg.MaxSize)
+			machinePoolScope.AWSMachinePool.Spec.MaxSize = asg.MaxSize
+		}
+		// Set MachinePool replicas to the ASG DesiredCapacity
 		if *machinePoolScope.MachinePool.Spec.Replicas != *asg.DesiredCapacity {
 			machinePoolScope.Info("Setting MachinePool replicas to ASG DesiredCapacity",
-				"Replicas", machinePoolScope.MachinePool.Spec.Replicas,
-				"DesiredCapacity", asg.DesiredCapacity)
+				"local", machinePoolScope.MachinePool.Spec.Replicas,
+				"external", asg.DesiredCapacity)
 			machinePoolScope.MachinePool.Spec.Replicas = asg.DesiredCapacity
 			if err := machinePoolScope.PatchHelper.Patch(context.TODO(), machinePoolScope.MachinePool); err != nil {
 				return ctrl.Result{}, err
@@ -465,8 +479,11 @@ func (r *AWSMachinePoolReconciler) reconcileTags(machinePoolScope *scope.Machine
 
 // asgNeedsUpdates compares incoming AWSMachinePool and compares against existing ASG
 func asgNeedsUpdates(machinePoolScope *scope.MachinePoolScope, existingASG *infrav1exp.AutoScalingGroup) bool {
+	if machinePoolScope.MachinePool.Spec.ExternallyManagedReplicaCount {
+		return false
+	}
+
 	if machinePoolScope.MachinePool.Spec.Replicas != nil &&
-		!machinePoolScope.MachinePool.Spec.ExternallyManagedReplicaCount &&
 		machinePoolScope.MachinePool.Spec.Replicas != existingASG.DesiredCapacity {
 		return true
 	}
