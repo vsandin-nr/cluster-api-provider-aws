@@ -79,6 +79,7 @@ func (s *Service) ReconcileSecurityGroups() error {
 		existing, ok := sgs[*sg.GroupName]
 
 		if !ok {
+			// if it is disabled and the role is bastion, skip
 			if !s.scope.Bastion().Enabled && role == "bastion" {
 				break
 			} else if err := s.createSecurityGroup(role, sg); err != nil {
