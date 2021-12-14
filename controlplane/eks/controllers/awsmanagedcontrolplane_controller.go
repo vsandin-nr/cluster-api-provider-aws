@@ -50,7 +50,19 @@ import (
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/securitygroup"
 )
 
-// AWSManagedControlPlaneReconciler reconciles a AWSManagedControlPlane object
+const (
+	// deleteRequeueAfter is how long to wait before checking again to see if the control plane still
+	// has dependencies during deletion.
+	deleteRequeueAfter = 20 * time.Second
+)
+
+var (
+	eksSecurityGroupRoles = []infrav1.SecurityGroupRole{
+		infrav1.SecurityGroupEKSNodeAdditional,
+	}
+)
+
+// AWSManagedControlPlaneReconciler reconciles a AWSManagedControlPlane object.
 type AWSManagedControlPlaneReconciler struct {
 	client.Client
 	Log       logr.Logger
@@ -194,9 +206,8 @@ func (r *AWSManagedControlPlaneReconciler) reconcileNormal(ctx context.Context, 
 		return ctrl.Result{}, err
 	}
 
-	sgRoles := []infrav1.SecurityGroupRole{
-		infrav1.SecurityGroupBastion,
-		infrav1.SecurityGroupEKSNodeAdditional,
+	if awsManagedControlPlane.Spec.Bastion.Enabled {
+		eksSecurityGroupRoles = append(eksSecurityGroupRoles, infrav1.SecurityGroupBastion)
 	}
 
 	ec2Service := ec2.NewService(managedScope)
