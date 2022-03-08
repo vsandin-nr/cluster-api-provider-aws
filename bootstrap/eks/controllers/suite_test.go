@@ -30,8 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 
-	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
-	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
+	"sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	controlplanev1alpha3 "sigs.k8s.io/cluster-api-provider-aws/controlplane/eks/api/v1alpha3"
 	// +kubebuilder:scaffold:imports
 )
@@ -70,9 +69,8 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(cfg).ToNot(BeNil())
 
 	Expect(clusterv1.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(infrav1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(v1alpha3.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(controlplanev1alpha3.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(expinfrav1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	// +kubebuilder:scaffold:scheme
 

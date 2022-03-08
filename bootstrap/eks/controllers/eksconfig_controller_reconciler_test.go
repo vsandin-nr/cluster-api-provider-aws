@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 
+	kErr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	bootstrapv1 "sigs.k8s.io/cluster-api-provider-aws/bootstrap/eks/api/v1alpha3"
@@ -77,7 +78,7 @@ var _ = Describe("EKSConfigReconciler", func() {
 			cluster = newCluster("cluster")
 			machine = newMachine(cluster, "machine")
 			config = newEKSConfig(machine, "cfg")
-			awsmcp = newAWSManagedCotrolPlane("cluster")
+			awsmcp = newAWSManagedControlPlane("cluster")
 			err := k8sClient.Create(context.Background(), awsmcp)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -108,37 +109,37 @@ var _ = Describe("EKSConfigReconciler", func() {
 		It("should have a secret after joinWorker is called", func() {
 			emptySecret := &corev1.Secret{}
 			err := k8sClient.Get(context.Background(), types.NamespacedName{Namespace: config.Namespace, Name: config.Name}, emptySecret)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(emptySecret.Data["value"])).To(Equal(""))
+			Expect(kErr.IsNotFound(err)).To(BeTrue())
 
 			result, err := reconciler.joinWorker(context.Background(), log.Log, cluster, config)
+			Expect(err).ToNot(HaveOccurred())
 
 			err = k8sClient.Get(context.Background(), types.NamespacedName{Namespace: config.Namespace, Name: config.Name}, eksSecret)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(string(eksSecret.Data["value"])).To(Equal("#!/bin/bash\n/etc/eks/bootstrap.sh \n"))
 			Expect(result).To(Equal(reconcile.Result{}))
-			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should update an existing secret", func() {
-
 			eksSecret = newSecret("cfg")
 			err := k8sClient.Create(context.Background(), eksSecret)
 			Expect(err).NotTo(HaveOccurred())
 
 			result, err := reconciler.joinWorker(context.Background(), log.Log, cluster, config)
+			Expect(err).ToNot(HaveOccurred())
 
 			updatedSecret := &corev1.Secret{}
 			err = k8sClient.Get(context.Background(), types.NamespacedName{Namespace: eksSecret.Namespace, Name: eksSecret.Name}, updatedSecret)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(string(updatedSecret.Data["value"])).NotTo(Equal("fake-data"))
 			Expect(result).To(Equal(reconcile.Result{}))
-			Expect(err).NotTo(HaveOccurred())
 		})
 
 	})
 
 })
 
-// newCluster return a CAPI cluster object
+// newCluster returns a CAPI cluster object
 func newCluster(name string) *clusterv1.Cluster {
 	return &clusterv1.Cluster{
 		TypeMeta: metav1.TypeMeta{
@@ -159,8 +160,8 @@ func newCluster(name string) *clusterv1.Cluster {
 	}
 }
 
-// newCluster return a CAPI cluster object
-func newAWSManagedCotrolPlane(name string) *controlplanev1alpha3.AWSManagedControlPlane {
+// newAWSManagedControlPlane returns a CAPA AWSManagedControlPlane object
+func newAWSManagedControlPlane(name string) *controlplanev1alpha3.AWSManagedControlPlane {
 	return &controlplanev1alpha3.AWSManagedControlPlane{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "AWSManagedControlPlane",
@@ -173,7 +174,7 @@ func newAWSManagedCotrolPlane(name string) *controlplanev1alpha3.AWSManagedContr
 	}
 }
 
-// newMachine return a CAPI machine object; if cluster is not nil, the machine is linked to the cluster as well
+// newMachine returns a CAPI machine object; if cluster is not nil, the machine is linked to the cluster as well
 func newMachine(cluster *clusterv1.Cluster, name string) *clusterv1.Machine {
 	machine := &clusterv1.Machine{
 		TypeMeta: metav1.TypeMeta{
@@ -202,7 +203,7 @@ func newMachine(cluster *clusterv1.Cluster, name string) *clusterv1.Machine {
 	return machine
 }
 
-// newEKSConfig return an EKSConfig object; if machine is not nil, the EKSConfig is linked to the machine as well
+// newEKSConfig returns an EKSConfig object; if machine is not nil, the EKSConfig is linked to the machine as well
 func newEKSConfig(machine *clusterv1.Machine, name string) *bootstrapv1.EKSConfig {
 	config := &bootstrapv1.EKSConfig{
 		TypeMeta: metav1.TypeMeta{
@@ -230,7 +231,7 @@ func newEKSConfig(machine *clusterv1.Machine, name string) *bootstrapv1.EKSConfi
 	return config
 }
 
-// newSecret return an EKSConfig object; if machine is not nil, the EKSConfig is linked to the machine as well
+// newSecret returns a Secret object
 func newSecret(name string) *corev1.Secret {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
