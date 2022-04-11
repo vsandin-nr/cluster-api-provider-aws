@@ -146,6 +146,7 @@ func (s *Service) ReconcileSecurityGroups() error {
 		}
 
 		toAuthorize := want.Difference(current)
+		s.scope.V(2).Info("toAuthorize debugging", "role", toAuthorize)
 		if len(toAuthorize) > 0 {
 			if err := wait.WaitForWithRetryable(wait.NewBackoff(), func() (bool, error) {
 				if err := s.authorizeSecurityGroupIngressRules(sg.ID, toAuthorize); err != nil {
@@ -401,15 +402,17 @@ func (s *Service) getSecurityGroupIngressRules(role infrav1.SecurityGroupRole) (
 
 	switch role {
 	case infrav1.SecurityGroupBastion:
-		return infrav1.IngressRules{
-			{
-				Description: "SSH",
-				Protocol:    infrav1.SecurityGroupProtocolTCP,
-				FromPort:    22,
-				ToPort:      22,
-				CidrBlocks:  s.scope.Bastion().AllowedCIDRBlocks,
-			},
-		}, nil
+		if !s.scope.Bastion().Enabled {
+			return infrav1.IngressRules{
+				{
+					Description: "SSH",
+					Protocol:    infrav1.SecurityGroupProtocolTCP,
+					FromPort:    22,
+					ToPort:      22,
+					CidrBlocks:  s.scope.Bastion().AllowedCIDRBlocks,
+				},
+			}, nil
+		}
 	case infrav1.SecurityGroupControlPlane:
 		rules := infrav1.IngressRules{
 			s.defaultSSHIngressRule(s.scope.SecurityGroups()[infrav1.SecurityGroupBastion].ID),
