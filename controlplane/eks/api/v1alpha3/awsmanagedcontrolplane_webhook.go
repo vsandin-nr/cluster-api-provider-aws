@@ -233,6 +233,10 @@ func (r *AWSManagedControlPlane) Default() {
 		r.Spec.Version = &normalizedV
 	}
 
-	infrav1.SetDefaults_Bastion(&r.Spec.Bastion)
+	// Only SetDefaults for Bastion if its enabled
+	if r.Spec.Bastion.Enabled {
+		infrav1.SetDefaults_Bastion(&r.Spec.Bastion)
+	}
+
 	infrav1.SetDefaults_NetworkSpec(&r.Spec.NetworkSpec)
 }
