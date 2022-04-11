@@ -79,7 +79,10 @@ func (s *Service) ReconcileSecurityGroups() error {
 		existing, ok := sgs[*sg.GroupName]
 
 		if !ok {
-			if err := s.createSecurityGroup(role, sg); err != nil {
+			// if it is disabled and the role is bastion, skip
+			if !s.scope.Bastion().Enabled && role == "bastion" {
+				break
+			} else if err := s.createSecurityGroup(role, sg); err != nil {
 				return err
 			}
 
@@ -462,9 +465,11 @@ func (s *Service) getSecurityGroupIngressRules(role infrav1.SecurityGroupRole) (
 		}
 		return append(cniRules, rules...), nil
 	case infrav1.SecurityGroupEKSNodeAdditional:
-		return infrav1.IngressRules{
-			s.defaultSSHIngressRule(s.scope.SecurityGroups()[infrav1.SecurityGroupBastion].ID),
-		}, nil
+		if !s.scope.Bastion().Enabled {
+			return infrav1.IngressRules{
+				s.defaultSSHIngressRule(s.scope.SecurityGroups()[infrav1.SecurityGroupBastion].ID),
+			}, nil
+		}
 	case infrav1.SecurityGroupAPIServerLB:
 		return infrav1.IngressRules{
 			{
