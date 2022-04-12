@@ -213,7 +213,7 @@ func (r *AWSManagedControlPlaneReconciler) reconcileNormal(ctx context.Context, 
 	ec2Service := ec2.NewService(managedScope)
 	networkSvc := network.NewService(managedScope)
 	ekssvc := eks.NewService(managedScope)
-	sgService := securitygroup.NewServiceWithRoles(managedScope, sgRoles)
+	sgService := securitygroup.NewServiceWithRoles(managedScope, eksSecurityGroupRoles)
 	authService := iamauth.NewService(managedScope, iamauth.BackendTypeConfigMap, managedScope.Client)
 
 	if err := networkSvc.ReconcileNetwork(); err != nil {
