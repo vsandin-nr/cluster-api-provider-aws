@@ -61,7 +61,6 @@ func (s *Service) reconcileSecurityGroups() error {
 
 	// Declare all security group roles that the reconcile loop takes care of.
 	roles := []infrav1.SecurityGroupRole{
-		infrav1.SecurityGroupBastion,
 		infrav1.SecurityGroupAPIServerLB,
 		infrav1.SecurityGroupLB,
 		infrav1.SecurityGroupControlPlane,
@@ -379,7 +378,6 @@ func (s *Service) getSecurityGroupIngressRules(role infrav1.SecurityGroupRole) (
 		}, nil
 	case infrav1.SecurityGroupControlPlane:
 		return infrav1.IngressRules{
-			s.defaultSSHIngressRule(s.scope.SecurityGroups()[infrav1.SecurityGroupBastion].ID),
 			{
 				Description: "Kubernetes API",
 				Protocol:    infrav1.SecurityGroupProtocolTCP,
@@ -429,7 +427,6 @@ func (s *Service) getSecurityGroupIngressRules(role infrav1.SecurityGroupRole) (
 
 	case infrav1.SecurityGroupNode:
 		return infrav1.IngressRules{
-			s.defaultSSHIngressRule(s.scope.SecurityGroups()[infrav1.SecurityGroupBastion].ID),
 			{
 				Description: "Node Port Services",
 				Protocol:    infrav1.SecurityGroupProtocolTCP,
