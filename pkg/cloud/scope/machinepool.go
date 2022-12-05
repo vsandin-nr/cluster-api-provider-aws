@@ -162,7 +162,7 @@ func (m *MachinePoolScope) getBootstrapData() ([]byte, string, error) {
 	secret := &corev1.Secret{}
 	key := types.NamespacedName{Namespace: m.Namespace(), Name: *m.MachinePool.Spec.Template.Spec.Bootstrap.DataSecretName}
 
-	if err := m.client.Get(context.TODO(), key, secret); err != nil {
+	if err := m.Client.Get(context.TODO(), key, secret); err != nil {
 		return nil, "", errors.Wrapf(err, "failed to retrieve bootstrap data secret for AWSMachine %s/%s", m.Namespace(), m.Name())
 	}
 
@@ -320,7 +320,7 @@ func (m *MachinePoolScope) getNodeStatusByProviderID(ctx context.Context, provid
 		nodeStatusMap[id] = &NodeStatus{}
 	}
 
-	workloadClient, err := remote.NewClusterClient(ctx, "", m.client, util.ObjectKey(m.Cluster))
+	workloadClient, err := remote.NewClusterClient(ctx, "", m.Client, util.ObjectKey(m.Cluster))
 	if err != nil {
 		return nil, err
 	}
