@@ -455,17 +455,18 @@ func (r *AWSMachinePoolReconciler) reconcileLaunchTemplate(machinePoolScope *sco
 	// If there is a change: before changing the template, check if there exist an ongoing instance refresh,
 	// because only 1 instance refresh can be "InProgress". If template is updated when refresh cannot be started,
 	// that change will not trigger a refresh. Do not start an instance refresh if only userdata changed.
-	if needsUpdate || tagsChanged || *imageID != *launchTemplate.AMI.ID {
-		asgSvc := r.getASGService(ec2Scope)
-		canStart, err := asgSvc.CanStartASGInstanceRefresh(machinePoolScope)
-		if err != nil {
-			return err
-		}
-		if !canStart {
-			conditions.MarkFalse(machinePoolScope.AWSMachinePool, expinfrav1.InstanceRefreshStartedCondition, expinfrav1.InstanceRefreshNotReadyReason, clusterv1.ConditionSeverityWarning, "")
-			return errors.New("Cannot start a new instance refresh. Unfinished instance refresh exist")
-		}
-	}
+	// FIXME(dpanzella): disable instance refresh for the moment
+	//if needsUpdate || tagsChanged || *imageID != *launchTemplate.AMI.ID {
+	//	asgSvc := r.getASGService(ec2Scope)
+	//	canStart, err := asgSvc.CanStartASGInstanceRefresh(machinePoolScope)
+	//	if err != nil {
+	//		return err
+	//	}
+	//	if !canStart {
+	//		conditions.MarkFalse(machinePoolScope.AWSMachinePool, expinfrav1.InstanceRefreshStartedCondition, expinfrav1.InstanceRefreshNotReadyReason, clusterv1.ConditionSeverityWarning, "")
+	//		return errors.New("Cannot start a new instance refresh. Unfinished instance refresh exist")
+	//	}
+	//}
 
 	// Create a new launch template version if there's a difference in configuration, tags,
 	// userdata, OR we've discovered a new AMI ID.
@@ -490,15 +491,16 @@ func (r *AWSMachinePoolReconciler) reconcileLaunchTemplate(machinePoolScope *sco
 	// this conditional will not evaluate to true the next reconcile. If any machines use an older
 	// Launch Template version, and the difference between the older and current versions is _more_
 	// than userdata, we should start an Instance Refresh.
-	if needsUpdate || tagsChanged || *imageID != *launchTemplate.AMI.ID {
-		machinePoolScope.Info("starting instance refresh", "number of instances", machinePoolScope.MachinePool.Spec.Replicas)
-		asgSvc := r.getASGService(ec2Scope)
-		if err := asgSvc.StartASGInstanceRefresh(machinePoolScope); err != nil {
-			conditions.MarkFalse(machinePoolScope.AWSMachinePool, expinfrav1.InstanceRefreshStartedCondition, expinfrav1.InstanceRefreshFailedReason, clusterv1.ConditionSeverityError, err.Error())
-			return err
-		}
-		conditions.MarkTrue(machinePoolScope.AWSMachinePool, expinfrav1.InstanceRefreshStartedCondition)
-	}
+	// FIXME(dpanzella): disable instance refresh for the moment
+	//if needsUpdate || tagsChanged || *imageID != *launchTemplate.AMI.ID {
+	//	machinePoolScope.Info("starting instance refresh", "number of instances", machinePoolScope.MachinePool.Spec.Replicas)
+	//	asgSvc := r.getASGService(ec2Scope)
+	//	if err := asgSvc.StartASGInstanceRefresh(machinePoolScope); err != nil {
+	//		conditions.MarkFalse(machinePoolScope.AWSMachinePool, expinfrav1.InstanceRefreshStartedCondition, expinfrav1.InstanceRefreshFailedReason, clusterv1.ConditionSeverityError, err.Error())
+	//		return err
+	//	}
+	//	conditions.MarkTrue(machinePoolScope.AWSMachinePool, expinfrav1.InstanceRefreshStartedCondition)
+	//}
 
 	return nil
 }
