@@ -252,7 +252,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(ctx context.Context, machineP
 
 	if scope.ReplicasExternallyManaged(machinePoolScope.MachinePool) {
 		// Set MachinePool replicas to the ASG DesiredCapacity
-		if *machinePoolScope.MachinePool.Spec.Replicas != *asg.DesiredCapacity {
+		if machinePoolScope.MachinePool.Spec.Replicas == nil || *machinePoolScope.MachinePool.Spec.Replicas != *asg.DesiredCapacity {
 			machinePoolScope.Info("Setting MachinePool replicas to ASG DesiredCapacity",
 				"local", machinePoolScope.MachinePool.Spec.Replicas,
 				"external", asg.DesiredCapacity)
